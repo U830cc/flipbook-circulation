@@ -2001,10 +2001,12 @@ const POP = {
       pickable(m, P, 'h', (l) => ({ x: l.x * 900, y: 600 }));
       const s = textSprite(name, { h: 0.024 }); s.position.set((X(a) + X(b)) / 2, Y(sY - 34) + 0.045, zc); g.add(s);
     }
-    const deep = new THREE.Mesh(new THREE.BoxGeometry(X(wr) - X(wl), Y(sY), D - 0.004), M(0x123f73, { transparent: true, opacity: 0.55, depthWrite: false }));
-    deep.position.set((X(wl) + X(wr)) / 2, Y(sY) / 2, zc); g.add(deep); pickable(deep, P, 'h', (l) => ({ x: l.x * 900, y: 600 }));
-    const cols = [], cw = (X(wr) - X(wl)) / N2;
-    for (let i = 0; i < N2; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(cw * 1.01, 1, D - 0.01), M(0xf76707, { roughness: 0.4 })); g.add(m); cols.push(m); }
+    const cols = [], deeps = [], cw = (X(wr) - X(wl)) / N2, deepM = M(0x123f73, { roughness: 0.7 });
+    for (let i = 0; i < N2; i++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(cw * 1.01, 1, D - 0.01), M(0xf76707, { roughness: 0.4 })); g.add(m); cols.push(m);
+      const d = new THREE.Mesh(new THREE.BoxGeometry(cw * 1.01, 1, D - 0.01), deepM); g.add(d); deeps.push(d);
+      for (const mm of [m, d]) pickable(mm, P, 'h', (l) => ({ x: l.x * 900, y: 600 }));
+    }
     const cloud = new THREE.Group(); g.add(cloud);
     for (let i = 0; i < 7; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.03 + 0.012 * (i % 3), 16, 12), M(0x9aa3ab, { roughness: 0.9 })); c.position.set((i - 3) * 0.022, 0.01 * Math.sin(i * 2), ((i % 3) - 1) * 0.04); cloud.add(c); }
     shadowAll(cloud);
@@ -2020,6 +2022,7 @@ const POP = {
       cols.forEach((m, i) => {
         const px = wl + (i + 0.5) * (wr - wl) / N2, y1 = surfY(px), y0 = thY(px), f = (i + 0.5) / N2;
         m.scale.y = Math.max(0.002, y1 - y0); m.position.set(X(wl) + (i + 0.5) * cw, (y0 + y1) / 2, zc);
+        deeps[i].scale.y = Math.max(0.002, y0); deeps[i].position.set(m.position.x, y0 / 2, zc);
         m.material.color.setStyle(f < warmF - 0.12 ? '#f76707' : f < warmF + 0.08 ? '#fd7e14' : mix('#4dabf7', '#228be6', (f - warmF) / (1 - warmF + 1e-3)));
       });
       cloud.position.set(X(st._xr), Y(sY) + 0.3, zc);
