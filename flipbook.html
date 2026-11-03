@@ -116,6 +116,9 @@ button { font: inherit; color: inherit; }
     <button class="btn" id="viewRead" aria-pressed="false" title="มุมมองอ่าน (มองจากด้านบน)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h7a2 2 0 012 2v12a2 2 0 00-2-2H3zM21 5h-7a2 2 0 00-2 2v12a2 2 0 012-2h7z"/></svg><span class="lbl">อ่าน</span>
     </button>
+    <button class="btn" id="popBtn" aria-pressed="true" title="แสดงโมเดลป๊อปอัป 3 มิติ">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 18h18M6 18l3-9 3 5 2-3 4 7"/><circle cx="16" cy="6" r="2"/></svg><span class="lbl">ป๊อปอัป</span>
+    </button>
     <button class="btn" id="animBtn" aria-pressed="false" title="หยุดหรือเล่นภาพเคลื่อนไหว">
       <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span class="lbl">หยุดภาพ</span>
     </button>
@@ -1006,6 +1009,7 @@ function dLayers(ctx, t, P) {
   // probe
   const held = st.depth != null && P.clock - st.dt < 6;
   const d = held ? st.depth : 4000 * (0.5 - 0.5 * Math.cos(Math.PI * clamp(mod1(t / 12) * 1.15, 0, 1)));
+  st._d = d;
   const py = dToY(d), pp = profile(d, lat), pxc = (c0 + c1) / 2;
   ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(pxc, 230); ctx.lineTo(pxc, py - 14); ctx.stroke();
   ctx.fillStyle = '#ffd43b'; rr(ctx, pxc - 9, py - 16, 18, 32, 5); ctx.fill(); ctx.strokeStyle = '#7a5d00'; ctx.lineWidth = 2; ctx.stroke();
@@ -1074,6 +1078,7 @@ function dGyres(ctx, t, P) {
     const q = p.at(dr.u0 + du); bottle(ctx, q.x, q.y, q.ang);
   }
   // probe
+  st._info = null;
   if (st.probe) {
     const { x, y } = st.probe; let best = null;
     P.paths.forEach((o, i) => { const nn = o.p.nearest(x, y); if (!best || nn.d < best.d) best = { ...nn, i, k: o.k }; });
@@ -1090,6 +1095,7 @@ function dGyres(ctx, t, P) {
         : Math.abs(vy) > Math.abs(vx) ? (pole === 'ไหลไปทางขั้วโลก' ? 'กระแสน้ำอุ่น' : 'กระแสน้ำเย็น') : Math.abs(lat) < 25 ? 'กระแสน้ำศูนย์สูตร (อุ่น)' : 'กระแสน้ำลมตะวันตก (ค่อนข้างเย็น)';
       info = [kind, `ไหลไปทาง${dname} · ${pole}`, warm];
     } else info = ['ไม่มีกระแสน้ำหลักบริเวณนี้', 'ลองลากไปใกล้เส้นทางของวงวน', '#495057'];
+    st._info = info;
     const bxw = 300, bxx = clamp(x - bxw / 2, X0 + 8, X1 - bxw - 8), bxy = y > 600 ? y - 120 : y + 48;
     ctx.fillStyle = 'rgba(255,255,255,0.96)'; rr(ctx, bxx, bxy, bxw, 70, 10); ctx.fill();
     ctx.fillStyle = info[2]; rr(ctx, bxx, bxy, 7, 70, 3); ctx.fill();
@@ -1215,6 +1221,7 @@ function dENSO(ctx, t, P) {
   }
   // Walker circulation
   const xr = lerp(wl + 70, wr - 120, clamp(0.32 + 0.42 * e, 0.05, 0.92)), xs = wr - 40;
+  Object.assign(st, { _surf: surf, _thermo: thermo, _warm: warmEdge, _xr: xr, _xs: xs, _wl: wl, _wr: wr, _tw: clamp(1 - e, -0.4, 2), _up: up });
   if (xs - xr > 80) {
     const loop = Path(rrectPts(xr - 30, top + 70, xs - xr + 30, sY - top - 110, 50, 10).reverse());
     const ph = phaseAdvance(st, 'pw', t, 0.05 * clamp(0.25 + trade * 0.6, 0.1, 1.4));
@@ -1530,14 +1537,23 @@ function buildPage(i) {
       P.draw = () => ctx.drawImage(base, 0, 0);
     } else if (def.kind === 'toc') P.draw = () => { ctx.drawImage(base, 0, 0); drawTOC(ctx, P); };
     else if (def.kind === 'quiz') P.draw = () => { ctx.drawImage(base, 0, 0); drawQuiz(ctx, P); };
-    else { P.anim = true; P.draw = (t) => { ctx.drawImage(base, 0, 0); def.draw(ctx, t, P); }; }
+    else { P.anim = true; P.base = base; P.draw = (t) => { ctx.drawImage(base, 0, 0); def.draw(ctx, t, P); }; }
   }
   P.tex = new THREE.CanvasTexture(cv);
   P.tex.colorSpace = THREE.SRGBColorSpace;
   if (side === 'L') { P.tex.wrapS = THREE.RepeatWrapping; P.tex.repeat.x = -1; P.tex.offset.x = 1; }
   return P;
 }
-function redraw(P) { P.zones = []; P.clock = animClock; P.draw(animClock); P.tex.needsUpdate = true; P.dirty = false; }
+function redraw(P) {
+  P.zones = []; P.clock = animClock; P.draw(animClock);
+  const pop = P.popObj;
+  if (pop && pop.hidden) {
+    const [x, y, w, h] = pop.rect, src = P.i === 0 ? COVER_BG : P.base;
+    P.ctx.drawImage(src, x, y, w, h, x, y, w, h);
+    if (P.i !== 0) label(P.ctx, '↻ ภาพ 3 มิติ · ลากบนโมเดลเพื่อโต้ตอบ · ลากพื้นที่ว่างเพื่อหมุนดูรอบด้าน', x + w / 2, y + 14, { size: 14, wt: 600, color: P.th.a });
+  }
+  P.tex.needsUpdate = true; P.dirty = false;
+}
 
 // ============================================================ three.js scene
 const stage = document.getElementById('stage');
@@ -1655,7 +1671,7 @@ function setSingle(v) {
   single = v; const b = document.getElementById('modeBtn');
   b.setAttribute('aria-pressed', String(v));
   b.querySelector('.lbl').textContent = v ? 'หน้าเดียว' : 'หน้าคู่';
-  if (orbit) setView(v ? 'read' : viewName); updateHud();
+  if (orbit) setView(viewName); updateHud();
 }
 let goTimers = [];
 function goToSpread(target) {
@@ -1674,7 +1690,7 @@ function preset(name) {
   const d = Math.max(PH * 1.15, (single ? PW * 1.04 : 2 * PW) / a) * fit, x = followX;
   return name === 'read'
     ? { pos: new THREE.Vector3(x, d, 0.12 * d + 0.03), target: new THREE.Vector3(x, 0, 0.03) }
-    : { pos: new THREE.Vector3(x + 0.22 * d, 0.95 * d, 0.9 * d), target: new THREE.Vector3(x, 0, 0.07) };
+    : { pos: new THREE.Vector3(x + (single ? 0.06 : 0.22) * d, 0.95 * d, 0.9 * d), target: new THREE.Vector3(x, 0.05, 0.07) };
 }
 function followStep(dt) {
   const want = single ? book.position.x + (focusSide() === 'R' ? PW / 2 : -PW / 2) : 0;
@@ -1693,6 +1709,383 @@ function setView(name, instant = false) {
   camTween = { t: 0, p0: camera.position.clone(), p1: p.pos, t0: orbit.target.clone(), t1: p.target };
 }
 
+// ============================================================ pop-up 3D scenes
+// Each scene lives in page-local units (1 unit = 900 canvas px; x from the spine, z = py/900 - 0.65, y up).
+const UP = new THREE.Vector3(0, 1, 0);
+const px2x = (px) => px / 900, py2z = (py) => py / 900 - 0.65;
+const popPickables = [];
+let popOn = true;
+const M = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05, ...o });
+function shadowAll(obj) { obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return obj; }
+function textSprite(txt, o = {}) {
+  const { color = '#25303a', bg = 'rgba(255,255,255,0.93)', h = 0.032, border = null } = o;
+  const c = document.createElement('canvas'), x = c.getContext('2d'), fs = 44;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false }));
+  spr.userData.set = (t, col = color, brd = border) => {
+    const lines = String(t).split('\n');
+    x.font = `600 ${fs}px ${F.label}`;
+    const w = Math.ceil(Math.max(...lines.map(l => x.measureText(l).width))) + 36, hh = lines.length * fs * 1.3 + 22;
+    c.width = w; c.height = hh;
+    x.font = `600 ${fs}px ${F.label}`; x.fillStyle = bg; rr(x, 2, 2, w - 4, hh - 4, 18); x.fill();
+    if (brd) { x.strokeStyle = brd; x.lineWidth = 5; x.stroke(); }
+    x.fillStyle = col; x.textBaseline = 'middle';
+    lines.forEach((l, i) => x.fillText(l, 18, 11 + fs * 1.3 * (i + 0.5)));
+    spr.material.map.dispose(); spr.material.map = new THREE.CanvasTexture(c); spr.material.map.colorSpace = THREE.SRGBColorSpace;
+    spr.scale.set(h * lines.length * (w / hh), h * lines.length, 1);
+  };
+  spr.userData.set(txt); spr.renderOrder = 10; return spr;
+}
+let GLOBE_TEX = null;
+function globeTex() {
+  if (GLOBE_TEX) return GLOBE_TEX;
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, '#e3f2fb'); g.addColorStop(0.1, '#6db7e2'); g.addColorStop(0.5, '#1f6fae'); g.addColorStop(0.9, '#6db7e2'); g.addColorStop(1, '#e3f2fb');
+  x.fillStyle = g; x.fillRect(0, 0, 1024, 512);
+  for (let i = 0; i < 700; i++) { x.fillStyle = `rgba(255,255,255,${rnd() * 0.06})`; x.beginPath(); x.ellipse(rnd() * 1024, rnd() * 512, 10 + rnd() * 40, 4 + rnd() * 10, 0, 0, Math.PI * 2); x.fill(); }
+  for (const lat of [-60, -30, 0, 30, 60]) {
+    const y = 256 - lat / 90 * 256; x.strokeStyle = `rgba(255,255,255,${lat ? 0.4 : 0.85})`; x.lineWidth = lat ? 2 : 4;
+    x.setLineDash(lat ? [14, 10] : []); x.beginPath(); x.moveTo(0, y); x.lineTo(1024, y); x.stroke();
+  }
+  x.setLineDash([]); x.strokeStyle = 'rgba(255,255,255,0.18)'; x.lineWidth = 1.5;
+  for (let lon = 0; lon < 1024; lon += 1024 / 12) { x.beginPath(); x.moveTo(lon, 0); x.lineTo(lon, 512); x.stroke(); }
+  GLOBE_TEX = new THREE.CanvasTexture(c); GLOBE_TEX.colorSpace = THREE.SRGBColorSpace; return GLOBE_TEX;
+}
+function deskGlobe(parent, x, z, y, R, tilt = 0) {
+  const brass = M(0x9c7a3c, { metalness: 0.45, roughness: 0.35 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.5, R * 0.62, 0.014, 40), brass); base.position.set(x, 0.007, z);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, y - R * 0.95, 12), brass); pole.position.set(x, (y - R * 0.95) / 2, z);
+  const arc = new THREE.Mesh(new THREE.TorusGeometry(R * 1.1, 0.0045, 8, 64, Math.PI), brass);
+  arc.position.set(x, y, z); arc.rotation.set(0, 0, Math.PI / 2 - tilt);
+  const tiltG = new THREE.Group(); tiltG.position.set(x, y, z); tiltG.rotation.z = -tilt;
+  const spin = new THREE.Group(); tiltG.add(spin);
+  const sphere = new THREE.Mesh(new THREE.SphereGeometry(R, 64, 40), M(0xffffff, { map: globeTex(), roughness: 0.4 }));
+  spin.add(sphere);
+  parent.add(shadowAll(base), shadowAll(pole), shadowAll(arc), tiltG); shadowAll(sphere);
+  return { sphere, spin, tiltG };
+}
+function tube(pts, r, color, closed = true, o = {}) {
+  const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])), closed, 'centripetal');
+  const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(60, pts.length * 2), r, 8, closed), M(color, { transparent: o.opacity != null, opacity: o.opacity ?? 1 }));
+  mesh.castShadow = true; return { mesh, curve };
+}
+function markers(parent, curve, n, color, size, shape = 'cone') {
+  const geo = shape === 'cone' ? new THREE.ConeGeometry(size * 0.55, size * 1.5, 12) : new THREE.SphereGeometry(size * 0.6, 12, 10);
+  const ms = [];
+  for (let k = 0; k < n; k++) { const m = new THREE.Mesh(geo, M(color)); m.castShadow = true; parent.add(m); ms.push(m); }
+  return {
+    ms,
+    update(ph, colFn) {
+      ms.forEach((m, k) => {
+        const u = mod1(k / n + ph), p = curve.getPointAt(u);
+        m.position.copy(p);
+        if (shape === 'cone') m.quaternion.setFromUnitVectors(UP, curve.getTangentAt(u));
+        if (colFn) m.material.color.setStyle(colFn(p, u));
+      });
+    },
+  };
+}
+function arrow3(color, len = 0.1, r = 0.008) {
+  const g = new THREE.Group(), mat = M(color);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len * 0.7, 12), mat); shaft.rotation.x = Math.PI / 2; shaft.position.z = len * 0.35;
+  const head = new THREE.Mesh(new THREE.ConeGeometry(r * 2.4, len * 0.3, 16), mat); head.rotation.x = Math.PI / 2; head.position.z = len * 0.85;
+  g.add(shaft, head); return shadowAll(g);
+}
+function pickable(mesh, P, plane, toCanvas) { mesh.userData.pop = { P, plane, toCanvas }; popPickables.push(mesh); return mesh; }
+const flatCanvas = (l) => ({ x: l.x * 900, y: (l.z + 0.65) * 900 });
+
+const POP = {
+  0: { rect: [180, 170, 570, 600], build(g, P) {
+    const G = deskGlobe(g, px2x(465), py2z(470), 0.25, 0.17, 23.5 * D2R);
+    const ring = new THREE.Mesh(new THREE.SphereGeometry(0.19, 40, 24), M(0x9bd4ff, { transparent: true, opacity: 0.12, depthWrite: false }));
+    G.tiltG.add(ring);
+    return { update(t, dt) { G.spin.rotation.y += dt * 0.35; } };
+  } },
+  6: { rect: [84, 672, 360, 404], build(g, P) {
+    const gx = P.X0 + 168, gy = 862, R = 0.15;
+    const G = deskGlobe(g, px2x(gx), py2z(gy), 0.21, R);
+    const fixed = new THREE.Group(); fixed.position.copy(G.tiltG.position); g.add(fixed);
+    pickable(G.sphere, P, 'mesh', (l) => { const loc = G.sphere.worldToLocal(l.world.clone()); return { x: gx, y: gy - 160 * clamp(loc.y / R, -1, 1) }; });
+    const on = (lat, lon, rr = R * 1.03) => [rr * Math.cos(lat) * Math.sin(lon), rr * Math.sin(lat), rr * Math.cos(lat) * Math.cos(lon)];
+    let paths = null, lastLat = null, ball = new THREE.Mesh(new THREE.SphereGeometry(0.009, 16, 12), M(0xe8590c)); fixed.add(ball);
+    const poleLbl = textSprite('N', { h: 0.026 }); poleLbl.position.set(0, R + 0.04, 0); fixed.add(poleLbl);
+    const latLbl = textSprite('45°N', { h: 0.028 }); fixed.add(latLbl);
+    return { update(t, dt) {
+      G.spin.rotation.y += dt * 0.4;
+      const lat0 = P.st.lat * D2R;
+      if (P.st.lat !== lastLat) {
+        lastLat = P.st.lat;
+        if (paths) paths.forEach(p => { fixed.remove(p.mesh); p.mesh.geometry.dispose(); });
+        const n = 40, straight = [], real = [];
+        for (let i = 0; i <= n; i++) { const u = i / n, lon = (-50 + 95 * u) * D2R; straight.push(on(lat0, lon)); real.push(on(clamp(lat0 - Math.sin(lat0) * 22 * D2R * u * u, -1.5, 1.5), lon)); }
+        paths = [tube(straight, 0.0022, 0xffffff, false, { opacity: 0.7 }), tube(real, 0.0045, 0xffd43b, false)];
+        paths.forEach(p => fixed.add(p.mesh));
+        latLbl.userData.set(`${Math.abs(P.st.lat)}°${P.st.lat > 0 ? 'N' : P.st.lat < 0 ? 'S' : ''}`);
+        const lp = on(lat0, -62 * D2R, R * 1.25); latLbl.position.set(lp[0], lp[1], lp[2]);
+      }
+      ball.position.copy(paths[1].curve.getPointAt(mod1(t * 0.45)));
+    } };
+  } },
+  10: { rect: [92, 236, 742, 640], build(g, P) {
+    const gx = P.cx + 26, gy = 566, R = 0.17;
+    const G = deskGlobe(g, px2x(gx), py2z(gy), 0.3, R);
+    const fixed = new THREE.Group(); fixed.position.copy(G.tiltG.position); g.add(fixed);
+    pickable(G.sphere, P, 'mesh', (l) => { const loc = G.sphere.worldToLocal(l.world.clone()); return { x: gx, y: gy - 178 * clamp(loc.y / R, -1, 1) }; });
+    const flows = [], plane = new THREE.Group(); fixed.add(plane);
+    {
+      THREE_CELLS.forEach(c => { for (const sx of [1, -1]) for (const sy of [1, -1]) {
+        const pts = cellPts(c.a, c.b, R + 0.012, R + 0.07, c.rev, 60).map(([phi, r]) => [sx * r * Math.cos(phi * D2R), sy * r * Math.sin(phi * D2R), 0]);
+        const T = tube(pts, 0.0028, c.col, true, { opacity: 0.75 }); plane.add(T.mesh); flows.push(markers(plane, T.curve, 4, c.col, 0.013));
+      } });
+    }
+    THREE_CELLS.forEach(c => { const pm = (c.a + c.b) / 2 * D2R, rm = R + 0.041; for (const sy of [1, -1]) { const s = textSprite(c.name, { color: c.col, h: 0.022 }); s.position.set(rm * Math.cos(pm) + 0.02, sy * rm * Math.sin(pm), 0.01); plane.add(s); } });
+    for (const [lat, L] of [[90, 'H'], [60, 'L'], [30, 'H'], [0, 'L'], [-30, 'H'], [-60, 'L'], [-90, 'H']]) {
+      const s = textSprite(L, { color: L === 'H' ? C.hi : C.lo, h: 0.024, border: L === 'H' ? C.hi : C.lo }), rr2 = R + 0.1;
+      s.position.set(-rr2 * Math.cos(lat * D2R) - (Math.abs(lat) === 90 ? 0.05 : 0), rr2 * Math.sin(lat * D2R) * (Math.abs(lat) === 90 ? 0.92 : 1), 0); plane.add(s);
+    }
+    const winds = [], wgeo = new THREE.ConeGeometry(0.006, 0.026, 10), wmat = M(0xffffff);
+    for (const [lat0, dx, dy0] of [[15, -1, 0.5], [45, 1, -0.45], [72, -1, 0.35]]) for (const sy of [1, -1]) for (let k = 0; k < 12; k++) {
+      const m = new THREE.Mesh(wgeo, wmat); G.spin.add(m); winds.push({ m, lat: lat0 * sy * D2R, dx, dy: dy0 * sy, lon0: k / 12 * Math.PI * 2 });
+    }
+    const ringM = new THREE.Mesh(new THREE.TorusGeometry(1, 0.0035, 8, 80), M(0xffd43b)); ringM.rotation.x = Math.PI / 2; fixed.add(ringM);
+    const probe = arrow3(0xffd43b, 0.07, 0.006); fixed.add(probe);
+    const tag = textSprite('', { h: 0.026 }); fixed.add(tag); let lastLat = null;
+    return { update(t, dt) {
+      G.spin.rotation.y += dt * 0.25;
+      const cl = fixed.worldToLocal(camera.position.clone()); plane.rotation.y = Math.atan2(cl.x, cl.z);
+      flows.forEach(f => f.update(t * 0.1));
+      for (const w of winds) {
+        const lon = w.lon0 + t * 0.12 * w.dx, cl = Math.cos(w.lat), sl = Math.sin(w.lat), rr2 = R * 1.02;
+        w.m.position.set(rr2 * cl * Math.sin(lon), rr2 * sl, rr2 * cl * Math.cos(lon));
+        const e = new THREE.Vector3(Math.cos(lon), 0, -Math.sin(lon)), n = new THREE.Vector3(-sl * Math.sin(lon), cl, -sl * Math.cos(lon));
+        w.m.quaternion.setFromUnitVectors(UP, e.multiplyScalar(w.dx).addScaledVector(n, -w.dy).normalize());
+      }
+      const lat = P.st.lat * D2R;
+      ringM.position.y = R * Math.sin(lat); const rs = R * Math.cos(lat) * 1.03 + 0.002; ringM.scale.set(rs, rs, 1);
+      const info = surfaceWind(P.st.lat), pos = new THREE.Vector3(0, R * 1.05 * Math.sin(lat), R * 1.05 * Math.cos(lat));
+      pos.applyAxisAngle(UP, plane.rotation.y);
+      probe.visible = !!info.v; probe.position.copy(pos);
+      if (info.v) { const n = new THREE.Vector3(0, Math.cos(lat), -Math.sin(lat)); const d = new THREE.Vector3(info.v[0], 0, 0).addScaledVector(n, -info.v[1]).normalize().applyAxisAngle(UP, plane.rotation.y); probe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); probe.position.addScaledVector(d, -0.035); }
+      if (lastLat !== P.st.lat) { lastLat = P.st.lat; tag.userData.set(info.wind.split(' (')[0], info.col, info.col); }
+      tag.position.set(R + 0.13, R * Math.sin(lat), 0.02).applyAxisAngle(UP, plane.rotation.y);
+    } };
+  } },
+  14: { rect: [92, 214, 742, 540], build(g, P) {
+    const x = P.X0, W = P.X1 - P.X0, top = 214, sY = top + 74, bot = top + 540, xL = x + W * 0.73, k = 0.55 / 900;
+    const X = (px) => px2x(px), Y = (py) => (bot - py) * k, zb = -0.31, D = 0.36, zc = zb + D / 2;
+    const earth = [[x, bot], [x, bot - 12], [x + W * 0.45, bot - 34], [x + W * 0.62, sY + 240], [xL - 20, sY + 60], [xL, sY - 6], [xL + 40, sY - 26], [x + W, sY - 34], [x + W, bot]];
+    const shape = new THREE.Shape(earth.map(([a, b]) => new THREE.Vector2(X(a), Y(b))));
+    const land = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: D, bevelEnabled: false }), M(0xb39a68, { roughness: 0.9 }));
+    land.position.z = zb; g.add(shadowAll(land));
+    const grass = new THREE.Mesh(new THREE.BoxGeometry(X(x + W) - X(xL), 0.008, D), M(0x6d8f3c)); grass.position.set((X(xL) + X(x + W)) / 2 + 0.01, Y(sY - 30), zc); g.add(shadowAll(grass));
+    const water = new THREE.Mesh(new THREE.BoxGeometry(X(xL + 20) - X(x) - 0.004, Y(sY), D - 0.006), M(0x2f86c4, { transparent: true, opacity: 0.38, depthWrite: false, roughness: 0.2 }));
+    water.position.set((X(x) + X(xL + 20)) / 2, Y(sY) / 2, zc); g.add(water);
+    const surf = new THREE.Mesh(new THREE.PlaneGeometry(X(xL + 20) - X(x), D - 0.006, 40, 8), M(0x6cc4e6, { transparent: true, opacity: 0.55, roughness: 0.15, side: THREE.DoubleSide }));
+    surf.rotation.x = -Math.PI / 2; surf.position.set((X(x) + X(xL + 20)) / 2, Y(sY) + 0.001, zc); g.add(surf);
+    for (const m of [land, water, surf]) pickable(m, P, 'h', (l) => ({ x: l.x * 900, y: 600 }));
+    const ctrl = [[xL - 50, sY + 26], [x + 110, sY + 26], [x + 60, sY + 160], [x + 140, sY + 320], [x + W * 0.45, sY + 335], [x + W * 0.57, sY + 210], [xL - 92, sY + 96]];
+    const loop2 = chaikin(ctrl, 3);
+    const curves = [-0.25, -0.13, -0.02].map(z => new THREE.CatmullRomCurve3(loop2.map(([a, b]) => new THREE.Vector3(X(a), Y(b), z)), true));
+    const dots = curves.map(c => markers(g, c, 22, 0x74c0fc, 0.011, 'sphere'));
+    const wind = arrow3(0x495057, 0.16, 0.009); wind.position.set(X(xL - 150), Y(sY) + 0.07, zc); g.add(wind);
+    const ek = arrow3(0xe03131, 0.14, 0.008); ek.position.set(X(xL - 70), Y(sY) + 0.012, zc + 0.04); g.add(ek);
+    const wl = textSprite('ลม', { h: 0.026 }); g.add(wl);
+    const el = textSprite('น้ำผิวหน้า (Ekman)', { color: '#e03131', h: 0.024 }); g.add(el);
+    const tl = textSprite('ทวีป', { h: 0.026 }); tl.position.set(X(x + W * 0.88), Y(sY - 34) + 0.05, zc); g.add(tl);
+    const fish = [];
+    for (let i = 0; i < 6; i++) { const f = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 8), M(0x0b5e65)); f.scale.set(1.6, 0.6, 0.7); g.add(shadowAll(f)); fish.push(f); }
+    return { update(t) {
+      const w = P.st.w, s = Math.sign(w) || 1, mag = Math.abs(w), ph = (P.st.ph || 0) * s;
+      dots.forEach((d, i) => d.update(s > 0 ? ph + i * 0.13 : -ph + i * 0.13, (p) => {
+        const py = bot - p.y / k, px = p.x * 900, f = clamp((py - sY) / 300, 0, 1);
+        return s > 0 ? mix('#2a7fd4', '#9be7ff', (1 - f) * clamp((xL - px) / (W * 0.55), 0, 1)) : mix('#ffa94d', '#5c7cfa', f);
+      }));
+      if (s < 0) dots.forEach(d => d.ms.forEach(m => m.position.set(m.position.x, m.position.y, m.position.z)));
+      dots.forEach(d => d.ms.forEach(m => (m.visible = mag > 0.04)));
+      wind.visible = ek.visible = wl.visible = el.visible = mag > 0.06;
+      wind.scale.setScalar(0.5 + mag); wind.rotation.y = w >= 0 ? 0 : Math.PI;
+      ek.scale.setScalar(0.5 + mag); ek.rotation.y = w >= 0 ? -Math.PI / 2 : Math.PI / 2;
+      wl.position.set(wind.position.x, wind.position.y + 0.04, wind.position.z); el.position.set(ek.position.x - 0.06 * s, ek.position.y + 0.04, ek.position.z);
+      wl.userData.lastS !== s && (wl.userData.set(s > 0 ? 'ลมพัดลงใต้' : 'ลมพัดขึ้นเหนือ'), wl.userData.lastS = s);
+      fish.forEach((f, i) => { f.visible = i < Math.round(6 * Math.max(w, 0)); f.position.set(X(x + W * 0.38 + i * 40) + 0.02 * Math.sin(t * 0.9 + i), Y(sY + 50 + (i % 3) * 22), -0.22 + i * 0.05); f.rotation.y = Math.cos(t * 0.9 + i) > 0 ? 0 : Math.PI; });
+      const pa = surf.geometry.attributes.position;
+      for (let i = 0; i < pa.count; i++) pa.setZ(i, 0.003 * Math.sin(pa.getX(i) * 40 + t * 2));
+      pa.needsUpdate = true;
+    } };
+  } },
+  16: { rect: [84, 222, 380, 790], build(g, P) {
+    const cxp = P.X0 + 206, H = 0.42, r = 0.115, Yp = (py) => H * (990 - py) / 728;
+    const cx = px2x(cxp), cz = py2z(626);
+    const layers = [[262, 420], [420, 640], [640, 990]].map(([a, b], i) => {
+      const h = Yp(a) - Yp(b);
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h - 0.002, 48), M(0x4fb3d9, { transparent: true, opacity: 0.72, roughness: 0.15, depthWrite: i === 2 }));
+      m.position.set(cx, Yp(b) + h / 2, cz); g.add(m); m.castShadow = true;
+      pickable(m, P, 'v', (l) => ({ x: cxp, y: 990 - clamp(l.y / H, 0, 1) * 728 })); return m;
+    });
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.003, 8, 64), M(0xffffff)); rim.rotation.x = Math.PI / 2; rim.position.set(cx, H, cz); g.add(rim);
+    const probe = new THREE.Mesh(new THREE.CapsuleGeometry(0.012, 0.026, 6, 12), M(0xffd43b, { emissive: 0x6b5200 })); g.add(probe);
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 1, 6), M(0xffffff)); g.add(cable);
+    const names = [['ชั้นน้ำผสม', 341], ['ชั้นพิกโนไคลน์', 530], ['ชั้นน้ำลึก', 815]].map(([n, py]) => { const s = textSprite(n, { h: 0.026 }); s.position.set(cx + r + 0.075, Yp(py), cz + 0.02); g.add(s); return s; });
+    for (const [d, txt, py] of [[0, '0 m', 262], [200, '200 m', 420], [1000, '1,000 m', 640], [4000, '4,000 m', 990]]) { const s = textSprite(txt, { h: 0.02, color: C.soft }); s.position.set(cx - r - 0.05, Yp(py) + 0.006, cz); g.add(s); }
+    const readout = textSprite('', { h: 0.024, border: 'rgba(37,48,58,0.3)' }); g.add(readout);
+    const DY = [[0, 262], [200, 420], [1000, 640], [4000, 990]];
+    const dToY = (d) => { for (let i = 1; i < DY.length; i++) if (d <= DY[i][0]) return lerp(DY[i - 1][1], DY[i][1], (d - DY[i - 1][0]) / (DY[i][0] - DY[i - 1][0])); return 990; };
+    let lastKey = '';
+    return { update() {
+      const lat = P.st.lat, { Ts, Tdeep } = profile(0, lat), str = clamp((Ts - Tdeep) / 24, 0, 1);
+      layers[0].material.color.setStyle(mix('#3f79a8', '#79d6ea', str));
+      layers[1].material.color.setStyle(mix('#2f6596', '#3a92c6', str)); layers[1].material.opacity = 0.45 + 0.35 * str;
+      layers[2].material.color.setStyle('#123f73');
+      names[1].visible = str > 0.15;
+      const d = P.st._d ?? 0, y = Yp(dToY(d));
+      probe.position.set(cx, y, cz); cable.position.set(cx, (H + 0.03 + y) / 2, cz); cable.scale.y = Math.max(0.001, H + 0.03 - y);
+      const pp = profile(d, lat), key = `${Math.round(d)}|${pp.T.toFixed(1)}`;
+      if (key !== lastKey) { lastKey = key; readout.userData.set(`${Math.round(d).toLocaleString('en-US')} m · ${pp.T.toFixed(1)} °C`); }
+      readout.position.set(cx, y + 0.045, cz + r + 0.02);
+    } };
+  } },
+  18: { rect: [92, 214, 742, 780], build(g, P) {
+    const top = 214, bot = 994, latY = (lat) => 604 - lat * 6.1, X0 = P.X0, X1 = P.X1;
+    const ocean = new THREE.Mesh(new THREE.BoxGeometry(px2x(X1) - px2x(X0), 0.014, (bot - top) / 900), M(0x3e8fc4, { roughness: 0.25 }));
+    ocean.position.set((px2x(X0) + px2x(X1)) / 2, 0.007, (py2z(top) + py2z(bot)) / 2); g.add(ocean); ocean.receiveShadow = true;
+    pickable(ocean, P, 'h', flatCanvas);
+    const landPoly = (pts) => {
+      const shape = new THREE.Shape(pts.map(([a, b]) => new THREE.Vector2(px2x(a), -py2z(b))));
+      const m = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 2 }), M(0xd9c89c, { roughness: 0.85 }));
+      m.rotation.x = -Math.PI / 2; m.position.y = 0.01; g.add(shadowAll(m)); pickable(m, P, 'h', flatCanvas);
+    };
+    landPoly([[X0, latY(66)], [X0 + 70, latY(66)], [X0 + 62, latY(40)], [X0 + 78, latY(20)], [X0 + 60, latY(0)], [X0 + 74, latY(-25)], [X0 + 54, latY(-48)], [X0, latY(-48)]]);
+    landPoly([[X1, latY(66)], [X1 - 70, latY(66)], [X1 - 84, latY(45)], [X1 - 68, latY(25)], [X1 - 78, latY(5)], [X1 - 64, latY(-20)], [X1 - 72, latY(-42)], [X1, latY(-42)]]);
+    const bx0 = X0 + 76, bx1 = X1 - 80;
+    const flows = (P.paths || []).map(({ p, k }) => {
+      const pts = p.P.slice(0, p.closed ? -1 : undefined).map(([a, b]) => new THREE.Vector3(px2x(a), 0.02, py2z(b)));
+      const curve = new THREE.CatmullRomCurve3(pts, p.closed);
+      const n = k === 'nh' || k === 'sh' ? 40 : 14;
+      return { curve, k, len: p.len, dots: markers(g, curve, n, 0xffffff, 0.012, 'sphere'), heads: markers(g, curve, k === 'nh' || k === 'sh' ? 10 : 4, 0xffffff, 0.016) };
+    });
+    const col = (p, k) => k === 'acc' ? '#1c7ed6' : k === 'ecc' ? '#f08c00' : mix('#e03131', '#1c7ed6', (p.x * 900 - bx0) / (bx1 - bx0));
+    for (const [lat, dir, name] of [[15, -1, 'ลมค้า'], [-15, -1, 'ลมค้า'], [45, 1, 'ลมตะวันตก'], [-45, 1, 'ลมตะวันตก']]) {
+      const a = arrow3(0xffffff, 0.26, 0.007); a.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.55; } });
+      a.position.set(px2x(P.cx) - dir * 0.13, 0.1, py2z(latY(lat))); a.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2; g.add(a);
+      const s = textSprite(name, { h: 0.022 }); s.position.set(px2x(P.cx), 0.13, py2z(latY(lat))); g.add(s);
+    }
+    const bottles = Array.from({ length: 4 }, () => { const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.009, 0.022, 6, 12), M(0xc3fae8, { emissive: 0x0b5e45 })); b.rotation.z = Math.PI / 2; g.add(shadowAll(b)); return b; });
+    const probeTag = textSprite('', { h: 0.026 }); g.add(probeTag);
+    const probeRing = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.003, 8, 48), M(0xffffff)); probeRing.rotation.x = Math.PI / 2; g.add(probeRing);
+    let lastInfo = '';
+    return { update(t) {
+      for (const f of flows) { const ph = t * 38 / f.len; f.dots.update(ph, (p) => col(p, f.k)); f.heads.update(ph + 0.02, (p) => col(p, f.k)); }
+      const dr = P.st.drifters || [];
+      bottles.forEach((b, i) => {
+        const d = dr[i], f = d && flows[d.pi];
+        if (!f) { b.visible = false; return; }
+        const du = (t - d.t0) * 38 / f.len, u = d.u0 + du;
+        if (!f.curve.closed && u > 1) { b.visible = false; return; }
+        b.visible = true; b.position.copy(f.curve.getPointAt(mod1(u))); b.position.y = 0.032 + 0.004 * Math.sin(t * 3 + i);
+      });
+      const pr = P.st.probe, info = P.st._info;
+      probeTag.visible = probeRing.visible = !!(pr && info);
+      if (pr && info) {
+        probeRing.position.set(px2x(pr.x), 0.03, py2z(pr.y));
+        probeTag.position.set(px2x(pr.x), 0.1, py2z(pr.y));
+        const key = info[0] + info[1]; if (key !== lastInfo) { lastInfo = key; probeTag.userData.set(`${info[0]}\n${info[1]}`, info[2], info[2]); }
+      }
+    } };
+  } },
+  22: { rect: [92, 214, 742, 616], build(g, P) {
+    const top = 214, bot = 830, sY = 520, k = 0.6 / 900, X = px2x, Y = (py) => (bot - py) * k, zb = -0.3, D = 0.32, zc = zb + D / 2;
+    const st = P.st, X0 = P.X0, X1 = P.X1, wl = X0 + 90, wr = X1 - 90, N2 = 28;
+    const landM = M(0xb6a26e, { roughness: 0.9 });
+    for (const [a, b, name] of [[X0, wl, 'อินโดนีเซีย / ออสเตรเลีย'], [wr, X1, 'เปรู']]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(X(b) - X(a), Y(sY - 34), D), landM); m.position.set((X(a) + X(b)) / 2, Y(sY - 34) / 2, zc); g.add(shadowAll(m));
+      pickable(m, P, 'h', (l) => ({ x: l.x * 900, y: 600 }));
+      const s = textSprite(name, { h: 0.024 }); s.position.set((X(a) + X(b)) / 2, Y(sY - 34) + 0.045, zc); g.add(s);
+    }
+    const deep = new THREE.Mesh(new THREE.BoxGeometry(X(wr) - X(wl), Y(sY), D - 0.004), M(0x123f73, { transparent: true, opacity: 0.55, depthWrite: false }));
+    deep.position.set((X(wl) + X(wr)) / 2, Y(sY) / 2, zc); g.add(deep); pickable(deep, P, 'h', (l) => ({ x: l.x * 900, y: 600 }));
+    const cols = [], cw = (X(wr) - X(wl)) / N2;
+    for (let i = 0; i < N2; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(cw * 1.01, 1, D - 0.01), M(0xf76707, { roughness: 0.4 })); g.add(m); cols.push(m); }
+    const cloud = new THREE.Group(); g.add(cloud);
+    for (let i = 0; i < 7; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.03 + 0.012 * (i % 3), 16, 12), M(0x9aa3ab, { roughness: 0.9 })); c.position.set((i - 3) * 0.022, 0.01 * Math.sin(i * 2), ((i % 3) - 1) * 0.04); cloud.add(c); }
+    shadowAll(cloud);
+    const drops = Array.from({ length: 18 }, () => { const d = new THREE.Mesh(new THREE.CylinderGeometry(0.0015, 0.0015, 0.02, 6), M(0x1c7ed6)); g.add(d); return d; });
+    const walkerPts = (xr, xs) => rrectPts(X(xr) - 0.03, -(Y(sY) + 0.3), X(xs) - X(xr) + 0.03, 0.2, 0.05, 8).reverse().map(([a, b]) => [a, -b, zb + 0.04]);
+    let walker = null, wFlow = null, lastXr = null;
+    const trades = Array.from({ length: 5 }, () => { const a = arrow3(0x37424d, 0.09, 0.006); g.add(a); return a; });
+    const ups = Array.from({ length: 10 }, () => { const d = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8), M(0xa5d8ff)); g.add(d); return d; });
+    const stateTag = textSprite('ภาวะปกติ', { h: 0.032 }); stateTag.position.set(X(P.cx), Y(top) + 0.06, zc); g.add(stateTag); let lastState = '';
+    return { update(t) {
+      if (!st._surf) return;
+      const surfY = (px) => Y(st._surf(px)), thY = (px) => Y(st._thermo(px)), warmF = (st._warm - wl) / (wr - wl);
+      cols.forEach((m, i) => {
+        const px = wl + (i + 0.5) * (wr - wl) / N2, y1 = surfY(px), y0 = thY(px), f = (i + 0.5) / N2;
+        m.scale.y = Math.max(0.002, y1 - y0); m.position.set(X(wl) + (i + 0.5) * cw, (y0 + y1) / 2, zc);
+        m.material.color.setStyle(f < warmF - 0.12 ? '#f76707' : f < warmF + 0.08 ? '#fd7e14' : mix('#4dabf7', '#228be6', (f - warmF) / (1 - warmF + 1e-3)));
+      });
+      cloud.position.set(X(st._xr), Y(sY) + 0.3, zc);
+      drops.forEach((d, i) => { const u = mod1(t * 1.1 + i * 0.137); d.position.set(X(st._xr) + ((i % 6) - 2.5) * 0.018, Y(sY) + 0.28 - u * 0.26, zc + ((i % 3) - 1) * 0.05); });
+      if (lastXr === null || Math.abs(lastXr - st._xr) > 2) {
+        lastXr = st._xr;
+        if (walker) { g.remove(walker.mesh); wFlow.ms.forEach(m => g.remove(m)); }
+        if (st._xs - st._xr > 80) { walker = tube(walkerPts(st._xr, st._xs), 0.003, 0x5b4bc4, true, { opacity: 0.8 }); g.add(walker.mesh); wFlow = markers(g, walker.curve, 7, 0x5b4bc4, 0.016); }
+        else { walker = null; wFlow = null; }
+      }
+      if (wFlow) wFlow.update(st.pw || 0);
+      const tw = st._tw;
+      trades.forEach((a, i) => {
+        const f = mod1(t * 0.3 * Math.max(Math.abs(tw), 0.2) + i / 5), px = lerp(wr - 60, wl + 60, f);
+        a.visible = Math.abs(tw) > 0.08; a.position.set(X(px), surfY(px) + 0.03, zc + ((i % 2) - 0.5) * 0.12);
+        a.rotation.y = tw >= 0 ? -Math.PI / 2 : Math.PI / 2; a.scale.setScalar(0.4 + 0.5 * Math.abs(tw));
+      });
+      ups.forEach((d, i) => { const u = mod1(t * 0.25 * st._up + i / 10); d.visible = st._up > 0.05; d.position.set(X(wr - 30 - (i % 3) * 18), lerp(thY(wr) - 0.05, surfY(wr), u), zc + ((i % 4) - 1.5) * 0.06); });
+      const e = st.e, s = e < -0.35 ? ['ลานีญา (La Niña)', '#1971c2'] : e > 0.35 ? ['เอลนีโญ (El Niño)', '#e8590c'] : ['ภาวะปกติ', '#2b8a3e'];
+      if (s[0] !== lastState) { lastState = s[0]; stateTag.userData.set(s[0], s[1], s[1]); }
+    } };
+  } },
+};
+function makePops() {
+  for (const [i, def] of Object.entries(POP)) {
+    const P = pages[+i], g = new THREE.Group(), inner = new THREE.Group();
+    g.add(inner); book.add(g);
+    P.popObj = { g, inner, rect: def.rect, f: 0, hidden: false, api: def.build(inner, P) };
+    g.visible = false;
+  }
+}
+function isOpenPage(i) {
+  const c = spreadNow();
+  if (i === 2 * c && c < N) return sheets[c].t < 0.02 && (c === 0 || sheets[c - 1].t > 0.98);
+  if (i === 2 * c - 1 && c > 0) return sheets[c - 1].t > 0.98 && (c === N || sheets[c].t < 0.02);
+  return false;
+}
+function popStep(dt) {
+  for (const P of pages) {
+    const pop = P.popObj; if (!pop) continue;
+    const want = popOn && isOpenPage(P.i) ? 1 : 0;
+    pop.f += (want - pop.f) * (1 - Math.exp(-dt * (want ? 4 : 10)));
+    if (Math.abs(want - pop.f) < 0.002) pop.f = want;
+    const s = sheets[Math.floor(P.i / 2)];
+    pop.g.position.set(P.side === 'R' ? 0 : -PW, (P.side === 'R' ? s.hR : s.hL) + 0.0012, 0);
+    pop.g.visible = pop.f > 0.01;
+    const e = pop.f, back = e < 1 ? 1 + 0.12 * Math.sin(Math.PI * e) : 1;
+    pop.inner.scale.set(1, Math.max(0.001, e * back), 1);
+    const hide = popOn && pop.f > 0.35;
+    if (hide !== pop.hidden) { pop.hidden = hide; P.dirty = true; }
+    if (pop.g.visible) pop.api.update(animClock, paused ? 0 : dt);
+  }
+}
+function setPop(v) {
+  popOn = v; const b = document.getElementById('popBtn'); b.setAttribute('aria-pressed', String(v));
+}
+function pickPop(e) {
+  setRay(e);
+  const vis = popPickables.filter(m => m.userData.pop.P.popObj.f > 0.9);
+  return vis.length ? ray.intersectObjects(vis, false)[0] || null : null;
+}
+function popCanvas(mesh, world) {
+  const P = mesh.userData.pop.P, l = P.popObj.inner.worldToLocal(world.clone()); l.world = world;
+  return mesh.userData.pop.toCanvas(l);
+}
+
 // ============================================================ pointer interaction
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.12);
@@ -1708,6 +2101,20 @@ function localX(e) { setRay(e); const pt = new THREE.Vector3(); return ray.ray.i
 let act = null, hoverSheet = null;
 function onDown(e) {
   if (e.button !== 0 || !orbit) return;
+  const ph = pickPop(e);
+  if (ph) {
+    const pc = popCanvas(ph.object, ph.point), PP = ph.object.userData.pop.P, pz = zoneAt(PP, pc.x, pc.y);
+    if (pz) {
+      const kind = ph.object.userData.pop.plane;
+      let plane = null;
+      if (kind === 'h') plane = new THREE.Plane().setFromNormalAndCoplanarPoint(UP, ph.point);
+      if (kind === 'v') { const n = new THREE.Vector3(); camera.getWorldDirection(n); n.y = 0; n.normalize().negate(); plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, ph.point); }
+      orbit.enabled = false; renderer.domElement.setPointerCapture(e.pointerId);
+      act = { kind: 'zone', z: pz, P: PP, pop: { mesh: ph.object, plane }, last: pc, sx: e.clientX, sy: e.clientY, moved: false };
+      if (pz.drag) { pz.drag(pc.x, pc.y, 'start'); PP.dirty = true; }
+      return;
+    }
+  }
   const hit = pick(e); if (!hit) return;
   const h = hitInfo(hit), z = zoneAt(h.P, h.x, h.y);
   orbit.enabled = false;
@@ -1723,6 +2130,13 @@ function onDown(e) {
 function onMove(e) {
   if (act && act.kind === 'zone') {
     if (Math.hypot(e.clientX - act.sx, e.clientY - act.sy) > 4) act.moved = true;
+    if (act.pop) {
+      setRay(e); let pt = null;
+      if (act.pop.plane) { pt = new THREE.Vector3(); if (!ray.ray.intersectPlane(act.pop.plane, pt)) pt = null; }
+      else { const hh = ray.intersectObject(act.pop.mesh, false)[0]; pt = hh ? hh.point : null; }
+      if (pt) { act.last = popCanvas(act.pop.mesh, pt); if (act.z.drag) { act.z.drag(act.last.x, act.last.y, 'move'); act.P.dirty = true; } }
+      return;
+    }
     if (act.z.drag) { const hit = pick(e, [act.mesh]); if (hit) { const h = hitInfo(hit); act.z.drag(h.x, h.y, 'move'); act.P.dirty = true; } }
     return;
   }
@@ -1739,6 +2153,8 @@ function onMove(e) {
     return;
   }
   if (e.buttons) return;
+  const ph = pickPop(e);
+  if (ph) { const pc = popCanvas(ph.object, ph.point), pz = zoneAt(ph.object.userData.pop.P, pc.x, pc.y); if (pz) { renderer.domElement.style.cursor = pz.cursor || 'pointer'; return; } }
   const hit = pick(e);
   let cursor = '', peelS = null, peelV = 0;
   if (hit) {
@@ -1758,8 +2174,9 @@ function onMove(e) {
 function onUp(e) {
   if (!act) return;
   if (act.kind === 'zone') {
-    const hit = pick(e, [act.mesh]);
-    if (act.z.drag) { const h = hit ? hitInfo(hit) : null; act.z.drag(h ? h.x : -1, h ? h.y : -1, 'end'); act.P.dirty = true; }
+    if (act.pop) { if (act.z.drag) { act.z.drag(act.last.x, act.last.y, 'end'); act.P.dirty = true; } }
+    else { const hit = pick(e, [act.mesh]);
+      if (act.z.drag) { const h = hit ? hitInfo(hit) : null; act.z.drag(h ? h.x : -1, h ? h.y : -1, 'end'); act.P.dirty = true; } }
     if (act.z.click && !act.moved) { act.z.click(); act.P.dirty = true; }
   } else {
     const s = act.s;
@@ -1827,6 +2244,7 @@ function frame(now) {
     if (camTween.t >= 1) camTween = null;
   }
   followStep(dt);
+  popStep(dt);
   orbit.update();
   const tick = !paused && animClock - lastDraw > 1 / 30;
   for (const p of visiblePages()) { const P = pages[p]; if (P.dirty || (tick && P.anim)) redraw(P); }
@@ -1842,6 +2260,7 @@ async function boot() {
   for (let i = 0; i < PAGES.length; i++) pages.push(buildPage(i));
   for (const P of pages) redraw(P);
   makeSheets();
+  makePops();
   renderer.domElement.addEventListener('pointerdown', onDown);
   orbit = new OrbitControls(camera, renderer.domElement);
   orbit.enableDamping = true; orbit.dampingFactor = 0.08;
@@ -1851,11 +2270,11 @@ async function boot() {
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
   setSingle(autoSingle());
-  setView(single ? 'read' : '3d', true);
+  setView('3d', true);
   updateHud(); buildTocMenu(); setPaused(reduced);
   document.getElementById('loader').classList.add('done');
   requestAnimationFrame(frame);
-  window.__book = { sheets, pages, goToPage, flipNext, flipPrev, setView, camera, renderer, scene, orbit, book };
+  window.__book = { pops: () => pages.filter(p => p.popObj).map(p => [p.i, p.popObj.f]), sheets, pages, goToPage, flipNext, flipPrev, setView, camera, renderer, scene, orbit, book };
 }
 document.getElementById('prevBtn').onclick = prev;
 document.getElementById('nextBtn').onclick = next;
@@ -1864,6 +2283,7 @@ document.getElementById('modeBtn').onclick = () => { manualMode = true; setSingl
 document.getElementById('tocBtn').onclick = () => toggleToc();
 document.getElementById('view3d').onclick = () => setView('3d');
 document.getElementById('viewRead').onclick = () => setView('read');
+document.getElementById('popBtn').onclick = () => setPop(!popOn);
 document.getElementById('animBtn').onclick = () => setPaused(!paused);
 document.getElementById('fsBtn').onclick = () => { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen?.())?.catch?.(() => {}); };
 const help = document.getElementById('help');
