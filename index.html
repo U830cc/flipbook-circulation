@@ -1,0 +1,1857 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>หนังสือ 3D ลมและกระแสน้ำ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@500;600&family=Mitr:wght@500;600&family=Sarabun:wght@400;600;700&display=swap">
+<style>
+/* Layout: full-screen 3D desk; glass toolbar on top, page dock at bottom, help card bottom-left. Single committed night-desk look. */
+:root {
+  color-scheme: dark;
+  --night: #061423;
+  --deep: #0c2440;
+  --glass: rgba(10, 28, 50, 0.74);
+  --line: rgba(150, 196, 236, 0.22);
+  --ink: #e9f2fb;
+  --ink-soft: #a7bdd2;
+  --accent: #7cc4f2;
+  --warm: #f2a65a;
+  --ui: "IBM Plex Sans Thai", "Sarabun", "Thonburi", "Tahoma", sans-serif;
+  --display: "Mitr", "Sarabun", "Thonburi", sans-serif;
+}
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body {
+  background: radial-gradient(120% 90% at 50% 18%, #17406b 0%, var(--deep) 46%, var(--night) 100%);
+  color: var(--ink); font-family: var(--ui);
+  -webkit-user-select: none; user-select: none;
+}
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+button { font: inherit; color: inherit; }
+.glass {
+  background: var(--glass); border: 1px solid var(--line);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+}
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px));
+  pointer-events: none;
+}
+.brand { padding: 10px 16px; pointer-events: auto; min-width: 0; }
+.brand .eyebrow { font-size: 12px; letter-spacing: 0.08em; color: var(--accent); }
+.brand h1 { margin: 2px 0 0; font: 500 18px/1.3 var(--display); text-wrap: balance; }
+.tools { display: flex; gap: 6px; padding: 6px; pointer-events: auto; flex-wrap: wrap; justify-content: flex-end; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer; font-size: 14px; color: var(--ink);
+}
+.btn:hover { background: rgba(124,196,242,0.14); }
+.btn[aria-pressed="true"] { background: rgba(124,196,242,0.22); color: #fff; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.dock {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 5;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 4px; padding: 6px; max-width: calc(100vw - 32px);
+}
+.dock .pageinfo { min-width: 0; text-align: center; padding: 4px 10px; line-height: 1.25; }
+.dock .pageinfo b { display: block; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.dock .pageinfo span { display: block; font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+.iconbtn { width: 44px; height: 44px; justify-content: center; padding: 0; }
+#toc {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 6;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  width: min(420px, calc(100vw - 32px)); max-height: 62vh; overflow: auto; padding: 8px;
+}
+#toc h2 { font: 500 15px var(--display); margin: 8px 10px 6px; color: var(--accent); }
+#toc button { display: flex; width: 100%; justify-content: space-between; gap: 12px; text-align: left; border: 0; background: transparent; padding: 9px 12px; border-radius: 9px; cursor: pointer; font-size: 14px; }
+#toc button:hover, #toc button:focus-visible { background: rgba(124,196,242,0.14); outline: none; }
+#toc button span:last-child { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+#help {
+  position: fixed; z-index: 5; left: calc(16px + env(safe-area-inset-left, 0px));
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  width: min(330px, calc(100vw - 32px)); padding: 14px 16px; font-size: 13.5px; line-height: 1.6;
+}
+#help h2 { margin: 0 0 6px; font: 500 15px var(--display); color: var(--warm); }
+#help ul { margin: 0; padding-left: 18px; color: var(--ink-soft); }
+#help li b { color: var(--ink); font-weight: 600; }
+#help .row { display: flex; justify-content: flex-end; margin-top: 8px; }
+#help .row .btn { background: rgba(124,196,242,0.16); }
+#loader {
+  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+  background: var(--night); color: var(--ink-soft); font: 500 16px var(--display);
+  transition: opacity .5s ease;
+}
+#loader.done { opacity: 0; pointer-events: none; }
+#loader .ring { width: 46px; height: 46px; border-radius: 50%; border: 3px solid rgba(124,196,242,0.2); border-top-color: var(--accent); margin: 0 auto 14px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) {
+  .brand .eyebrow { display: none; }
+  .brand h1 { font-size: 15px; }
+  .btn .lbl { display: none; }
+  .tools { flex-wrap: nowrap; gap: 2px; padding: 4px; }
+  .tools .btn { padding: 8px; }
+  .brand { padding: 8px 12px; }
+  #help { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) { #loader .ring { animation: none; } }
+</style>
+
+<div id="stage"></div>
+
+<header class="topbar">
+  <div class="brand glass">
+    <div class="eyebrow">วิทยาศาสตร์โลกและอวกาศ · ม.6</div>
+    <h1>การหมุนเวียนของลมและน้ำในมหาสมุทร</h1>
+  </div>
+  <div class="tools glass" role="toolbar" aria-label="เครื่องมือ">
+    <button class="btn" id="view3d" aria-pressed="true" title="มุมมอง 3 มิติ">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><span class="lbl">3D</span>
+    </button>
+    <button class="btn" id="viewRead" aria-pressed="false" title="มุมมองอ่าน (มองจากด้านบน)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h7a2 2 0 012 2v12a2 2 0 00-2-2H3zM21 5h-7a2 2 0 00-2 2v12a2 2 0 012-2h7z"/></svg><span class="lbl">อ่าน</span>
+    </button>
+    <button class="btn" id="animBtn" aria-pressed="false" title="หยุดหรือเล่นภาพเคลื่อนไหว">
+      <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span class="lbl">หยุดภาพ</span>
+    </button>
+    <button class="btn" id="fsBtn" title="เต็มจอ">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl">เต็มจอ</span>
+    </button>
+    <button class="btn" id="helpBtn" title="วิธีใช้">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-1 .6-1.5 1.2-1.5 2.3M12 17h.01"/></svg><span class="lbl">วิธีใช้</span>
+    </button>
+  </div>
+</header>
+
+<nav class="dock glass" aria-label="เปลี่ยนหน้า">
+  <button class="btn iconbtn" id="prevBtn" aria-label="หน้าก่อนหน้า">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <button class="btn pageinfo" id="tocBtn" aria-expanded="false" aria-controls="toc">
+    <span><b id="pageNo">ปกหน้า</b><span id="pageTopic">แตะเพื่อดูสารบัญ</span></span>
+  </button>
+  <button class="btn iconbtn" id="nextBtn" aria-label="หน้าถัดไป">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg>
+  </button>
+</nav>
+
+<div id="toc" class="glass" hidden></div>
+
+<aside id="help" class="glass">
+  <h2>วิธีใช้หนังสือ</h2>
+  <ul>
+    <li><b>ลากหรือคลิกบนภาพ</b> เพื่อเปลี่ยนสถานการณ์และดูผลที่เกิดขึ้น</li>
+    <li><b>คลิกขอบกระดาษ</b> หรือลากมุมกระดาษ เพื่อพลิกหน้า</li>
+    <li><b>ลากพื้นที่ว่าง</b> เพื่อหมุนมุมมอง ลูกกลิ้งเมาส์เพื่อซูม</li>
+    <li>แป้นลูกศร ← → ใช้พลิกหน้าได้</li>
+  </ul>
+  <div class="row"><button class="btn" id="helpClose">เข้าใจแล้ว</button></div>
+</aside>
+
+<div id="loader"><div><div class="ring"></div>กำลังเตรียมหนังสือ…</div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ============================================================ constants
+const CW = 900, CH = 1170;
+const PW = 1, PH = CH / CW;
+const GAP = 0.0042, BASE = 0.006, SX = 44, SY = 12;
+const D2R = Math.PI / 180;
+const F = {
+  display: '"Mitr", "Sarabun", "Thonburi", "Tahoma", sans-serif',
+  body: '"Sarabun", "Thonburi", "Tahoma", sans-serif',
+  label: '"IBM Plex Sans Thai", "Sarabun", "Thonburi", "Tahoma", sans-serif',
+};
+const C = {
+  ink: '#25303a', soft: '#5d6872', paper: '#fbf8f1',
+  hi: '#1c63c9', lo: '#c92a2a', hot: '#e8590c', cold: '#1c7ed6',
+  hadley: '#e8590c', ferrel: '#2b8a3e', polar: '#1971c2',
+};
+const TH = {
+  intro: { a: '#8a5a14', t: '#f4e9d4', n: 0, ch: 'เริ่มต้น' },
+  wind:  { a: '#1f6fb2', t: '#e2edf8', n: 1, ch: 'บทที่ 1 · แรงที่ทำให้เกิดลม' },
+  atmo:  { a: '#5b4bc4', t: '#ebe8fa', n: 2, ch: 'บทที่ 2 · การหมุนเวียนของบรรยากาศ' },
+  ocean: { a: '#0f7c72', t: '#dff2ef', n: 3, ch: 'บทที่ 3 · โครงสร้างและการเคลื่อนที่ของน้ำทะเล' },
+  flow:  { a: '#0b5e95', t: '#e0edf7', n: 4, ch: 'บทที่ 4 · การหมุนเวียนของน้ำในมหาสมุทร' },
+  end:   { a: '#8a5a14', t: '#f4e9d4', n: 5, ch: 'ทบทวนความรู้' },
+};
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, f) => a + (b - a) * f;
+const smooth = (a, b, x) => { const f = clamp((x - a) / (b - a), 0, 1); return f * f * (3 - 2 * f); };
+const mod1 = (x) => ((x % 1) + 1) % 1;
+
+// ============================================================ colour + canvas helpers
+const rgbCache = {};
+function hex2rgb(h) { return rgbCache[h] || (rgbCache[h] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))); }
+function rgba(h, a) { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; }
+function mix(a, b, f, al = 1) {
+  const A = hex2rgb(a), B = hex2rgb(b); f = clamp(f, 0, 1);
+  return `rgba(${Math.round(lerp(A[0], B[0], f))},${Math.round(lerp(A[1], B[1], f))},${Math.round(lerp(A[2], B[2], f))},${al})`;
+}
+function rr(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function circle(ctx, x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); if (fill) { ctx.fillStyle = fill; ctx.fill(); } }
+function ring(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); }
+function glow(ctx, x, y, r, col) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+function label(ctx, txt, x, y, o = {}) {
+  const { size = 20, wt = 600, color = C.ink, align = 'center', bg = null, fam = F.label, pad = 7, r = 8, border = null } = o;
+  ctx.font = `${wt} ${size}px ${fam}`;
+  const w = ctx.measureText(txt).width;
+  const lx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+  if (bg) {
+    ctx.fillStyle = bg; rr(ctx, lx - pad, y - size * 0.7 - pad * 0.55, w + pad * 2, size * 1.4 + pad * 1.1, r); ctx.fill();
+    if (border) { ctx.strokeStyle = border; ctx.lineWidth = 1.5; ctx.stroke(); }
+  }
+  ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillText(txt, lx, y + 1);
+  return w;
+}
+function stitle(ctx, txt, x, y, th) { label(ctx, txt, x, y + 12, { size: 23, wt: 600, color: th.a, align: 'left', fam: F.display }); }
+function arrow(ctx, x1, y1, x2, y2, o = {}) {
+  const { color = C.ink, w = 4, head = 16, dash = null, off = 0 } = o;
+  const a = Math.atan2(y2 - y1, x2 - x1), len = Math.hypot(x2 - x1, y2 - y1);
+  const hd = Math.min(head, len * 0.6);
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+  if (dash) { ctx.setLineDash(dash); ctx.lineDashOffset = off; }
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2 - Math.cos(a) * hd * 0.7, y2 - Math.sin(a) * hd * 0.7); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - hd * Math.cos(a - 0.45), y2 - hd * Math.sin(a - 0.45));
+  ctx.lineTo(x2 - hd * Math.cos(a + 0.45), y2 - hd * Math.sin(a + 0.45));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function chevron(ctx, x, y, ang, col, s = 11) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.fillStyle = col;
+  ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * 0.7, -s * 0.75); ctx.lineTo(-s * 0.25, 0); ctx.lineTo(-s * 0.7, s * 0.75); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function Path(pts, closed = true) {
+  const P = pts.slice(); if (closed) P.push(pts[0]);
+  const L = [0];
+  for (let i = 1; i < P.length; i++) L.push(L[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const len = L[L.length - 1] || 1;
+  return {
+    P, L, len, closed,
+    at(u) {
+      u = closed ? mod1(u) : clamp(u, 0, 1);
+      const d = u * len; let lo = 0, hi = L.length - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (L[m] <= d) lo = m; else hi = m; }
+      const seg = L[hi] - L[lo] || 1, f = (d - L[lo]) / seg, a = P[lo], b = P[hi];
+      return { x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, ang: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+    },
+    nearest(x, y) {
+      let best = { d: 1e9, u: 0 };
+      for (let k = 0; k < 240; k++) { const q = this.at(k / 240); const d = Math.hypot(q.x - x, q.y - y); if (d < best.d) best = { d, u: k / 240, q }; }
+      return best;
+    },
+  };
+}
+function strokeP(ctx, path, color, w, dash, off) {
+  ctx.save(); ctx.beginPath();
+  path.P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+  ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  if (dash) { ctx.setLineDash(dash); ctx.lineDashOffset = off || 0; }
+  ctx.stroke(); ctx.restore();
+}
+function fillP(ctx, path, color) { ctx.beginPath(); path.P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fillStyle = color; ctx.fill(); }
+function chaikin(pts, it = 3) {
+  let p = pts;
+  for (let k = 0; k < it; k++) {
+    const o = [], n = p.length;
+    for (let i = 0; i < n; i++) {
+      const a = p[i], b = p[(i + 1) % n];
+      o.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+    }
+    p = o;
+  }
+  return p;
+}
+function rrectPts(x, y, w, h, r, n = 10) {
+  const out = []; r = Math.min(r, w / 2, h / 2);
+  const corner = (cx, cy, a0) => { for (let k = 0; k <= n; k++) { const a = a0 + (k / n) * Math.PI / 2; out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } };
+  corner(x + w - r, y + r, -Math.PI / 2); corner(x + w - r, y + h - r, 0);
+  corner(x + r, y + h - r, Math.PI / 2); corner(x + r, y + r, Math.PI);
+  return out;
+}
+// A circulation cell in (latitude°, radius) space; not reversed = rises on the low-latitude side.
+function cellPts(phiA, phiB, r1, r2, reversed, n = 90) {
+  const pc = (phiA + phiB) / 2, pa = (phiB - phiA) / 2 * 0.9, rc = (r1 + r2) / 2, ra = (r2 - r1) / 2 * 0.84, out = [];
+  for (let k = 0; k < n; k++) {
+    const th = Math.PI - (reversed ? -1 : 1) * 2 * Math.PI * k / n, c = Math.cos(th), s = Math.sin(th);
+    out.push([pc + pa * Math.sign(c) * Math.pow(Math.abs(c), 0.42), rc + ra * Math.sign(s) * Math.pow(Math.abs(s), 0.42)]);
+  }
+  return out;
+}
+function mapPolar(pts, cx, cy, sx, sy) { return pts.map(([phi, r]) => [cx + sx * r * Math.cos(phi * D2R), cy - sy * r * Math.sin(phi * D2R)]); }
+function globe(ctx, cx, cy, R) {
+  const g = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.08, cx, cy, R);
+  g.addColorStop(0, '#8fd0f2'); g.addColorStop(0.55, '#2f86c4'); g.addColorStop(1, '#123f73');
+  circle(ctx, cx, cy, R, g);
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+  ctx.lineWidth = 1.5;
+  for (const lat of [-60, -30, 30, 60]) {
+    const y = cy - R * Math.sin(lat * D2R), h = R * Math.cos(lat * D2R);
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(cx - h, y); ctx.lineTo(cx + h, y); ctx.stroke();
+  }
+  ctx.setLineDash([]); ctx.strokeStyle = 'rgba(255,255,255,0.65)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
+  ctx.restore();
+}
+function shell(ctx, cx, cy, r0, r1, col = 'rgba(140,190,240,0.16)') {
+  ctx.beginPath(); ctx.arc(cx, cy, r1, 0, Math.PI * 2); ctx.arc(cx, cy, r0, 0, Math.PI * 2, true); ctx.fillStyle = col; ctx.fill('evenodd');
+}
+function bigLetter(ctx, L, x, y, col, r = 30) {
+  circle(ctx, x, y, r, 'rgba(255,255,255,0.92)');
+  ctx.strokeStyle = col; ctx.lineWidth = 3.5; ring(ctx, x, y, r);
+  label(ctx, L, x, y + 1, { size: r * 1.15, wt: 700, color: col, fam: F.display });
+}
+function cellFlow(ctx, path, t, col, o = {}) {
+  const { pxs = 46, n = 6, dots = 9, band = null, width = 3, dotR = 4.2 } = o;
+  if (band) fillP(ctx, path, band);
+  const c0 = typeof col === 'function' ? 'rgba(70,80,100,0.45)' : rgba(col, 0.6);
+  strokeP(ctx, path, c0, width, [9, 8], -t * 30);
+  const ph = t * pxs / path.len;
+  for (let k = 0; k < n; k++) { const q = path.at(k / n + ph); chevron(ctx, q.x, q.y, q.ang, typeof col === 'function' ? col(q) : col, 11); }
+  for (let k = 0; k < dots; k++) { const q = path.at((k + 0.5) / dots + ph); circle(ctx, q.x, q.y, dotR, typeof col === 'function' ? col(q) : col); }
+}
+function phaseAdvance(st, key, t, rate) {
+  const lt = st['_lt' + key] ?? t; st['_lt' + key] = t;
+  st[key] = (st[key] || 0) + clamp(t - lt, 0, 0.2) * rate;
+  return st[key];
+}
+
+// ============================================================ text engine (Thai word wrap)
+const SEG = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', { granularity: 'word' }) : null;
+function words(s) { return SEG ? Array.from(SEG.segment(s), x => x.segment) : (s.match(/\S+\s*|\s+/g) || []); }
+function tokens(text) {
+  const out = [];
+  for (const part of text.split(/(\*\*[^*]+\*\*)/)) {
+    if (!part) continue;
+    const b = part.length > 4 && part.startsWith('**') && part.endsWith('**');
+    for (const w of words(b ? part.slice(2, -2) : part)) out.push({ w, b });
+  }
+  return out;
+}
+function wrap(ctx, text, maxW, size, fam = F.body, wt = 400, bw = 700) {
+  const lines = [];
+  for (const para of String(text).split('\n')) {
+    let line = [], lw = 0;
+    for (const tk of tokens(para)) {
+      ctx.font = `${tk.b ? bw : wt} ${size}px ${fam}`;
+      const width = ctx.measureText(tk.w).width;
+      if (lw + width > maxW && line.length) { lines.push(line); line = []; lw = 0; if (!tk.w.trim()) continue; }
+      line.push({ w: tk.w, b: tk.b, width }); lw += width;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+function drawLines(ctx, lines, x, y, lh, size, o = {}) {
+  const { fam = F.body, wt = 400, bw = 700, color = C.ink, bcolor = null, align = 'left' } = o;
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  for (const line of lines) {
+    const tw = line.reduce((s, t) => s + t.width, 0);
+    let lx = align === 'center' ? x - tw / 2 : align === 'right' ? x - tw : x;
+    for (const t of line) {
+      ctx.font = `${t.b ? bw : wt} ${size}px ${fam}`;
+      ctx.fillStyle = t.b ? (bcolor || color) : color;
+      ctx.fillText(t.w, lx, y + size * 0.98); lx += t.width;
+    }
+    y += lh;
+  }
+  return y;
+}
+function para(ctx, text, x, y, w, size, o = {}) {
+  const lh = o.lh || Math.round(size * 1.55);
+  return drawLines(ctx, wrap(ctx, text, w, size, o.fam || F.body, o.wt || 400, o.bw || 700), x, y, lh, size, o);
+}
+function renderBlocks(ctx, blocks, x, y, w, th, s = 1) {
+  const body = 26 * s, lh = Math.round(body * 1.55);
+  for (const b of blocks) {
+    if (b.gap) { y += b.gap * s; continue; }
+    if (b.h) {
+      y += 10 * s;
+      ctx.fillStyle = th.a; rr(ctx, x, y + 6 * s, 6 * s, 28 * s, 3); ctx.fill();
+      ctx.font = `600 ${30 * s}px ${F.display}`; ctx.fillStyle = C.ink; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      ctx.fillText(b.h, x + 18 * s, y);
+      y += 46 * s; continue;
+    }
+    if (b.p) { y = para(ctx, b.p, x, y, w, body, { lh, bcolor: th.a }) + 8 * s; continue; }
+    if (b.li) {
+      for (const it of b.li) {
+        circle(ctx, x + 10 * s, y + lh * 0.55, 5 * s, th.a);
+        y = para(ctx, it, x + 30 * s, y, w - 30 * s, body, { lh, bcolor: th.a }) + 3 * s;
+      }
+      y += 8 * s; continue;
+    }
+    if (b.box) {
+      const tone = b.tone || 'key', col = tone === 'warn' ? '#c2410c' : tone === 'note' ? '#2b6cb0' : th.a;
+      const pad = 20 * s, size = body * 0.92, l2 = Math.round(size * 1.55);
+      const lines = wrap(ctx, b.box, w - pad * 2 - 6 * s, size);
+      const h = lines.length * l2 + pad * 1.6;
+      ctx.fillStyle = rgba(col, 0.09); rr(ctx, x, y, w, h, 12 * s); ctx.fill();
+      ctx.fillStyle = col; rr(ctx, x, y, 6 * s, h, 3); ctx.fill();
+      drawLines(ctx, lines, x + pad + 6 * s, y + pad * 0.8, l2, size, { bcolor: col });
+      y += h + 14 * s; continue;
+    }
+    if (b.f) {
+      const size = 30 * s, h = 70 * s;
+      ctx.setLineDash([7, 6]); ctx.strokeStyle = rgba(th.a, 0.6); ctx.lineWidth = 2; rr(ctx, x, y, w, h, 12); ctx.stroke(); ctx.setLineDash([]);
+      label(ctx, b.f, x + w / 2, y + h / 2, { size, wt: 600, color: th.a, fam: F.label });
+      y += h + 6 * s;
+      if (b.cap) y = para(ctx, b.cap, x + w / 2, y, w, body * 0.8, { color: C.soft, align: 'center' });
+      y += 10 * s; continue;
+    }
+    if (b.table) {
+      const { head, rows, cols } = b.table, size = 22 * s, l2 = Math.round(size * 1.45), pad = 12 * s;
+      const cx = [x]; cols.forEach(f => cx.push(cx[cx.length - 1] + f * w));
+      const rowH = (cells, wt) => Math.max(...cells.map((c, i) => wrap(ctx, c, cx[i + 1] - cx[i] - pad * 2, size, F.body, wt).length)) * l2 + pad * 1.4;
+      const hh = rowH(head, 700);
+      ctx.fillStyle = th.a; rr(ctx, x, y, w, hh, 10 * s); ctx.fill();
+      head.forEach((c, i) => drawLines(ctx, wrap(ctx, c, cx[i + 1] - cx[i] - pad * 2, size, F.body, 700), cx[i] + pad, y + pad * 0.7, l2, size, { wt: 700, color: '#fff' }));
+      y += hh;
+      rows.forEach((r, ri) => {
+        const h = rowH(r, 400);
+        if (ri % 2 === 0) { ctx.fillStyle = rgba(th.a, 0.07); ctx.fillRect(x, y, w, h); }
+        r.forEach((c, i) => drawLines(ctx, wrap(ctx, c, cx[i + 1] - cx[i] - pad * 2, size), cx[i] + pad, y + pad * 0.7, l2, size, { bcolor: th.a, wt: i === 0 ? 600 : 400, bw: 700 }));
+        y += h;
+      });
+      ctx.strokeStyle = rgba(th.a, 0.35); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.stroke();
+      y += 18 * s; continue;
+    }
+  }
+  return y;
+}
+
+// ============================================================ paper, header, footer
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function makeCanvas() { const c = document.createElement('canvas'); c.width = CW; c.height = CH; return c; }
+let NOISE = null;
+function noise() {
+  if (NOISE) return NOISE;
+  NOISE = makeCanvas(); const x = NOISE.getContext('2d');
+  x.fillStyle = C.paper; x.fillRect(0, 0, CW, CH);
+  for (let i = 0; i < 16000; i++) {
+    const a = rnd() * 0.05;
+    x.fillStyle = rnd() < 0.5 ? `rgba(120,100,60,${a})` : `rgba(255,255,255,${a * 1.6})`;
+    x.fillRect(rnd() * CW, rnd() * CH, 1 + rnd() * 1.6, 1 + rnd() * 1.6);
+  }
+  for (let i = 0; i < 300; i++) {
+    x.strokeStyle = `rgba(140,120,80,${0.03 + rnd() * 0.05})`; x.lineWidth = 0.7;
+    const px = rnd() * CW, py = rnd() * CH, a = rnd() * Math.PI, l = 6 + rnd() * 14;
+    x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); x.stroke();
+  }
+  return NOISE;
+}
+function paperBase(ctx, P) {
+  ctx.drawImage(noise(), 0, 0);
+  const spineX = P.side === 'R' ? 0 : CW, dir = P.side === 'R' ? 1 : -1;
+  const g = ctx.createLinearGradient(spineX, 0, spineX + dir * 80, 0);
+  g.addColorStop(0, 'rgba(70,50,20,0.26)'); g.addColorStop(0.35, 'rgba(70,50,20,0.08)'); g.addColorStop(1, 'rgba(70,50,20,0)');
+  ctx.fillStyle = g; ctx.fillRect(P.side === 'R' ? 0 : CW - 80, 0, 80, CH);
+  const outer = P.side === 'R' ? CW : 0;
+  const g2 = ctx.createLinearGradient(outer, 0, outer - dir * 16, 0);
+  g2.addColorStop(0, 'rgba(0,0,0,0.07)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g2; ctx.fillRect(P.side === 'R' ? CW - 16 : 0, 0, 16, CH);
+}
+function header(ctx, P) {
+  const d = P.def, th = P.th;
+  if (th.n >= 1 && th.n <= 5) {
+    const ty = 150 + (th.n - 1) * 120, tx = P.side === 'R' ? CW - 22 : 0;
+    ctx.fillStyle = th.a; rr(ctx, tx - (P.side === 'R' ? 0 : 8), ty, 30, 96, 6); ctx.fill();
+    ctx.save(); ctx.translate(P.side === 'R' ? CW - 9 : 11, ty + 48); ctx.rotate(Math.PI / 2);
+    label(ctx, th.n <= 4 ? 'บท ' + th.n : 'ทบทวน', 0, 0, { size: 15, wt: 600, color: '#fff' }); ctx.restore();
+  }
+  label(ctx, th.ch, P.X0, 80, { size: 18, wt: 600, color: th.a, align: 'left' });
+  ctx.font = `600 42px ${F.display}`; ctx.fillStyle = C.ink; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillText(d.title, P.X0, 142);
+  if (d.sub) label(ctx, d.sub, P.X0, 172, { size: 19, wt: 500, color: C.soft, align: 'left' });
+  ctx.fillStyle = th.a; ctx.fillRect(P.X0, 192, 70, 3);
+  ctx.fillStyle = 'rgba(80,70,50,0.18)'; ctx.fillRect(P.X0 + 76, 193, P.X1 - P.X0 - 76, 1);
+}
+function footer(ctx, P) {
+  const y = CH - 34;
+  if (P.side === 'R') {
+    label(ctx, String(P.i), P.X1, y, { size: 20, wt: 600, color: C.soft, align: 'right' });
+    label(ctx, 'การหมุนเวียนของลมและน้ำในมหาสมุทร', P.X1 - 40, y, { size: 14, wt: 500, color: 'rgba(93,104,114,0.7)', align: 'right' });
+  } else {
+    label(ctx, String(P.i), P.X0, y, { size: 20, wt: 600, color: C.soft, align: 'left' });
+    label(ctx, P.th.ch, P.X0 + 40, y, { size: 14, wt: 500, color: 'rgba(93,104,114,0.7)', align: 'left' });
+  }
+}
+function slider(ctx, P, key, x, y, w, o = {}) {
+  const { min = 0, max = 1, left = '', right = '', title = '', value = '', col = P.th.a } = o;
+  const f = (P.st[key] - min) / (max - min);
+  if (title) label(ctx, title, x, y - 30, { size: 18, wt: 600, color: C.ink, align: 'left' });
+  if (value) label(ctx, value, x + w, y - 30, { size: 18, wt: 700, color: col, align: 'right' });
+  ctx.fillStyle = 'rgba(120,105,80,0.22)'; rr(ctx, x, y - 6, w, 12, 6); ctx.fill();
+  ctx.fillStyle = rgba(col, 0.85); rr(ctx, x, y - 6, Math.max(12, f * w), 12, 6); ctx.fill();
+  const kx = x + f * w;
+  circle(ctx, kx, y + 2, 17, 'rgba(0,0,0,0.12)'); circle(ctx, kx, y, 16, '#fff');
+  ctx.strokeStyle = col; ctx.lineWidth = 4; ring(ctx, kx, y, 16);
+  ctx.fillStyle = col; for (const d of [-5, 0, 5]) ctx.fillRect(kx + d - 1, y - 6, 2, 12);
+  if (left) label(ctx, left, x, y + 25, { size: 15, wt: 500, color: C.soft, align: 'left' });
+  if (right) label(ctx, right, x + w, y + 25, { size: 15, wt: 500, color: C.soft, align: 'right' });
+  P.zones.push({ x: x - 24, y: y - 30, w: w + 48, h: 60, cursor: 'ew-resize', drag: (px) => { P.st[key] = min + (max - min) * clamp((px - x) / w, 0, 1); } });
+}
+function hint(ctx, P, txt, y) {
+  label(ctx, '☝ ' + txt, P.cx, y, { size: 16, wt: 600, color: P.th.a, bg: rgba(P.th.a, 0.1), pad: 8, r: 14 });
+}
+
+// ============================================================ diagrams (each draws over the page base; P.st holds what the reader dragged)
+function dPGF(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  stitle(ctx, 'ก. อากาศเคลื่อนจากความกดสูงไปหาความกดต่ำ', X0, 214, th);
+  const top = 252, bot = 640, cy = 446, dist = st.dist, hx = cx - dist / 2, lx = cx + dist / 2;
+  const sp = (dist / 2 - 16) / 3, k = 46 / sp;
+  ctx.save(); rr(ctx, X0, top, X1 - X0, bot - top, 16); ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fillRect(X0, top, X1 - X0, bot - top);
+  glow(ctx, hx, cy, dist / 2 + 30, 'rgba(70,130,230,0.22)'); glow(ctx, lx, cy, dist / 2 + 30, 'rgba(235,90,70,0.22)');
+  ctx.strokeStyle = 'rgba(40,55,80,0.5)'; ctx.lineWidth = 2;
+  for (let i = 1; i <= 3; i++) { ring(ctx, hx, cy, sp * i); ring(ctx, lx, cy, sp * i); }
+  for (let i = 1; i <= 3; i++) {
+    label(ctx, String(1020 - 4 * i), hx, cy - sp * i, { size: 14, wt: 600, color: C.soft, bg: C.paper, pad: 3 });
+    label(ctx, String(996 + 4 * i), lx, cy - sp * i, { size: 14, wt: 600, color: C.soft, bg: C.paper, pad: 3 });
+  }
+  const R = sp * 3;
+  for (let j = 0; j < 22; j++) {
+    const a = j / 22 * Math.PI * 2 + 0.13, u = mod1(t * 0.22 * k + j * 0.618), al = Math.sin(Math.PI * u);
+    let r = 20 + u * (R - 10);
+    arrow(ctx, hx + Math.cos(a) * r, cy + Math.sin(a) * r, hx + Math.cos(a) * (r + 8 + 6 * k), cy + Math.sin(a) * (r + 8 + 6 * k), { color: rgba(C.hi, 0.85 * al), w: 2.5, head: 8 });
+    r = R + 10 - u * (R - 10);
+    arrow(ctx, lx + Math.cos(a) * r, cy + Math.sin(a) * r, lx + Math.cos(a) * (r - 8 - 6 * k), cy + Math.sin(a) * (r - 8 - 6 * k), { color: rgba(C.lo, 0.85 * al), w: 2.5, head: 8 });
+  }
+  bigLetter(ctx, 'H', hx, cy, C.hi, 26); bigLetter(ctx, 'L', lx, cy, C.lo, 26);
+  label(ctx, 'ความกดอากาศสูง', hx, cy + 44, { size: 16, color: C.hi, bg: 'rgba(255,255,255,0.85)', pad: 4 });
+  label(ctx, 'ความกดอากาศต่ำ', lx, cy + 44, { size: 16, color: C.lo, bg: 'rgba(255,255,255,0.85)', pad: 4 });
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(40,55,80,0.2)'; ctx.lineWidth = 2; rr(ctx, X0, top, X1 - X0, bot - top, 16); ctx.stroke();
+  hint(ctx, P, 'ลากซ้าย-ขวาเพื่อเลื่อน L เข้าใกล้หรือออกห่าง H', bot - 22);
+  P.zones.push({ x: X0, y: top, w: X1 - X0, h: bot - top, cursor: 'ew-resize', drag: (px) => { st.dist = clamp(2 * (px - cx), 170, 470); } });
+  // live readout
+  const level = k < 0.75 ? ['ลมอ่อน', '#2b8a3e'] : k < 1.15 ? ['ลมปานกลาง', '#e67700'] : k < 1.7 ? ['ลมแรง', '#d9480f'] : ['ลมแรงมาก', '#c92a2a'];
+  const ry = 664;
+  ctx.fillStyle = rgba(th.a, 0.08); rr(ctx, X0, ry, X1 - X0, 74, 12); ctx.fill();
+  label(ctx, `ระยะห่างไอโซบาร์ ≈ ${Math.round(sp * 3)} กม.`, X0 + 18, ry + 24, { size: 19, wt: 600, align: 'left' });
+  label(ctx, 'PGF', X0 + 18, ry + 54, { size: 18, wt: 700, color: th.a, align: 'left' });
+  const bw = 250 * clamp(k / 2.2, 0.05, 1);
+  arrow(ctx, X0 + 66, ry + 54, X0 + 76 + bw, ry + 54, { color: th.a, w: 4 + 4 * clamp(k / 2, 0, 1), head: 16 });
+  label(ctx, level[0], X1 - 18, ry + 38, { size: 26, wt: 700, color: level[1], align: 'right', fam: F.display });
+  // static comparison
+  stitle(ctx, 'ข. เปรียบเทียบระยะห่างของไอโซบาร์', X0, 758, th);
+  isoBox(ctx, X0, 800, 350, 196, 96, 3, 36, t, 'ไอโซบาร์ห่าง → ลมอ่อน', [1012, 1008, 1004], 70);
+  isoBox(ctx, X1 - 350, 800, 350, 196, 42, 5, 150, t, 'ไอโซบาร์ชิด → ลมแรง', [1016, 1012, 1008, 1004, 1000], 190);
+  label(ctx, 'ตัวเลขบนเส้นไอโซบาร์มีหน่วยเฮกโตพาสคัล (hPa)', cx, 1064, { size: 16, wt: 500, color: C.soft });
+}
+function isoBox(ctx, x, y, w, h, sp, n, speed, t, cap, vals, alen) {
+  ctx.save(); rr(ctx, x, y, w, h, 14); ctx.clip();
+  const g = ctx.createLinearGradient(x, 0, x + w, 0);
+  g.addColorStop(0, 'rgba(70,130,230,0.18)'); g.addColorStop(1, 'rgba(235,90,70,0.18)');
+  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  const x0 = x + w / 2 - sp * (n - 1) / 2;
+  ctx.strokeStyle = 'rgba(40,55,80,0.55)'; ctx.lineWidth = 2;
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath(); ctx.moveTo(x0 + i * sp, y + 34); ctx.lineTo(x0 + i * sp, y + h - 20); ctx.stroke();
+    label(ctx, String(vals[i]), x0 + i * sp, y + 18, { size: 13, wt: 600, color: C.soft });
+  }
+  for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) {
+    const px = x + 18 + mod1(k / 4 + t * speed / (w - 36) + r * 0.17) * (w - 36), py = y + 64 + r * 34;
+    const tail = 6 + speed * 0.12;
+    const g2 = ctx.createLinearGradient(px - tail, 0, px, 0); g2.addColorStop(0, 'rgba(37,48,58,0)'); g2.addColorStop(1, 'rgba(37,48,58,0.7)');
+    ctx.strokeStyle = g2; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px - tail, py); ctx.lineTo(px, py); ctx.stroke();
+    circle(ctx, px, py, 4, C.ink);
+  }
+  arrow(ctx, x + w / 2 - alen / 2, y + h - 34, x + w / 2 + alen / 2, y + h - 34, { color: '#1f6fb2', w: alen > 100 ? 7 : 4, head: 16 });
+  label(ctx, 'H', x + 18, y + h - 34, { size: 18, wt: 700, color: C.hi }); label(ctx, 'L', x + w - 18, y + h - 34, { size: 18, wt: 700, color: C.lo });
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(40,55,80,0.25)'; ctx.lineWidth = 2; rr(ctx, x, y, w, h, 14); ctx.stroke();
+  label(ctx, cap, x + w / 2, y + h + 24, { size: 19, wt: 600 });
+}
+
+function dCoriolis(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  stitle(ctx, 'ก. จานหมุนจำลอง: คลิกหรือลากบนจานเพื่อขว้าง', X0, 214, th);
+  disk(ctx, P, 'dn', cx - 186, 404, 134, +1, t, '#d6336c', 'ซีกโลกเหนือ · หมุนทวนเข็ม', 'วัตถุเบี่ยงไปทางขวา');
+  disk(ctx, P, 'ds', cx + 186, 404, 134, -1, t, '#7048e8', 'ซีกโลกใต้ · หมุนตามเข็ม', 'วัตถุเบี่ยงไปทางซ้าย');
+  stitle(ctx, 'ข. ลากขึ้น-ลงบนโลกเพื่อเปลี่ยนละติจูด', X0, 640, th);
+  const gx = X0 + 168, gy = 862, R = 160, lat = st.lat, sl = Math.sin(lat * D2R);
+  ctx.strokeStyle = 'rgba(30,40,60,0.5)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(gx, gy - R - 26); ctx.lineTo(gx, gy + R + 22); ctx.stroke();
+  globe(ctx, gx, gy, R);
+  label(ctx, 'ศูนย์สูตร', gx + R - 42, gy - 14, { size: 13, wt: 600, color: '#fff' });
+  const ym = gy - R * sl, half = Math.max(70, R * Math.cos(lat * D2R) * 0.78);
+  ctx.save(); ctx.strokeStyle = 'rgba(255,212,59,0.5)'; ctx.lineWidth = 2; ctx.setLineDash([4, 5]);
+  ctx.beginPath(); ctx.moveTo(gx - R - 10, ym); ctx.lineTo(gx + R + 10, ym); ctx.stroke(); ctx.restore();
+  const x0 = gx - half, x1 = gx + half, dev = sl * 62;
+  arrow(ctx, x0, ym, x1, ym, { color: 'rgba(255,255,255,0.75)', w: 2.5, head: 12, dash: [7, 6] });
+  const bez = (u) => [lerp(lerp(x0, gx, u), lerp(gx, x1, u), u), lerp(lerp(ym, ym, u), lerp(ym, ym + dev, u), u)];
+  ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = 4.5; ctx.beginPath();
+  for (let i = 0; i <= 30; i++) { const [px, py] = bez(i / 30); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+  ctx.stroke();
+  const [ex, ey] = bez(1), [e2x, e2y] = bez(0.96); chevron(ctx, ex, ey, Math.atan2(ey - e2y, ex - e2x), '#ffd43b', 13);
+  const u = mod1(t * 0.45), [bx, by] = bez(u); circle(ctx, bx, by, 8, '#fff'); circle(ctx, bx, by, 5, '#e8590c');
+  P.zones.push({ x: gx - R - 30, y: gy - R - 30, w: 2 * R + 60, h: 2 * R + 60, cursor: 'ns-resize', drag: (px, py) => { st.lat = Math.round(Math.asin(clamp((gy - py) / R, -1, 1)) / D2R); } });
+  // readout column
+  const rx = gx + R + 40, rw = X1 - rx;
+  const hemi = lat > 0 ? 'N' : lat < 0 ? 'S' : '';
+  label(ctx, `ละติจูด ${Math.abs(lat)}°${hemi}`, rx, 712, { size: 34, wt: 600, color: C.ink, align: 'left', fam: F.display });
+  label(ctx, 'ขนาดของแรงคอริออลิส', rx, 760, { size: 17, wt: 600, color: C.soft, align: 'left' });
+  ctx.fillStyle = 'rgba(120,105,80,0.18)'; rr(ctx, rx, 776, rw, 28, 8); ctx.fill();
+  ctx.fillStyle = th.a; rr(ctx, rx, 776, Math.max(6, rw * Math.abs(sl)), 28, 8); ctx.fill();
+  for (const m of [30, 60]) { const mx = rx + rw * Math.sin(m * D2R); ctx.fillStyle = 'rgba(37,48,58,0.5)'; ctx.fillRect(mx, 772, 2, 36); label(ctx, m + '°', mx, 822, { size: 13, color: C.soft }); }
+  label(ctx, `${Math.round(Math.abs(sl) * 100)}% ของค่าที่ขั้วโลก`, rx, 850, { size: 19, wt: 700, color: th.a, align: 'left' });
+  const verdict = Math.abs(lat) < 2 ? ['ไม่เบี่ยงเบน', '#495057'] : lat > 0 ? ['เบี่ยงไปทางขวา', '#d6336c'] : ['เบี่ยงไปทางซ้าย', '#7048e8'];
+  label(ctx, verdict[0], rx, 894, { size: 28, wt: 600, color: verdict[1], align: 'left', fam: F.display });
+  const msg = Math.abs(lat) < 2 ? 'ที่ศูนย์สูตร แรงคอริออลิสเป็นศูนย์ วัตถุจึงเคลื่อนที่ตรงไปตามแนวเดิม'
+    : Math.abs(lat) > 75 ? 'ใกล้ขั้วโลก แรงคอริออลิสมีค่ามากที่สุด เส้นทางจึงโค้งมาก'
+    : 'ยิ่งเลื่อนไปทางขั้วโลก แรงยิ่งมาก (แปรผันตาม sin ของละติจูด)';
+  para(ctx, msg, rx, 920, rw, 18, { color: C.ink });
+  label(ctx, 'เส้นประ = แนวเดิม  ·  เส้นเหลือง = เส้นทางจริง', rx, 1050, { size: 14, wt: 500, color: C.soft, align: 'left' });
+}
+function disk(ctx, P, key, cx, cy, R, dir, t, col, cap1, cap2) {
+  const st = P.st, d = st[key], T = 4, w = 0.85, tf = 0.72 * T, v = R * 0.9 / tf;
+  if (t - d.t0 > T || t < d.t0) d.t0 = t - mod1((t - d.t0) / T) * T;
+  const tl = t - d.t0, ang = -dir * w * t;
+  ctx.save(); ctx.translate(cx, cy);
+  circle(ctx, 3, 6, R + 3, 'rgba(0,0,0,0.10)');
+  ctx.rotate(ang);
+  for (let k = 0; k < 8; k++) {
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, k * Math.PI / 4, (k + 1) * Math.PI / 4); ctx.closePath();
+    ctx.fillStyle = k % 2 ? '#efe3c8' : '#e2d2ae'; ctx.fill();
+  }
+  ctx.strokeStyle = '#a08a5c'; ctx.lineWidth = 3; ring(ctx, 0, 0, R);
+  circle(ctx, R - 12, 0, 5, '#a08a5c');
+  ctx.restore();
+  circle(ctx, cx, cy, 7, '#6b5a3a');
+  // rotation sense
+  ctx.strokeStyle = 'rgba(37,48,58,0.6)'; ctx.lineWidth = 3; ctx.beginPath();
+  const a0 = -1.9, a1 = -1.1;
+  ctx.arc(cx, cy, R + 14, a0, a1); ctx.stroke();
+  const ea = dir > 0 ? a0 : a1, tang = ea + (dir > 0 ? -Math.PI / 2 : Math.PI / 2);
+  chevron(ctx, cx + Math.cos(ea) * (R + 14), cy + Math.sin(ea) * (R + 14), tang, 'rgba(37,48,58,0.75)', 10);
+  const dx = Math.cos(d.ang), dy = Math.sin(d.ang);
+  arrow(ctx, cx, cy, cx + dx * R * 0.92, cy + dy * R * 0.92, { color: 'rgba(37,48,58,0.45)', w: 2, head: 10, dash: [6, 6] });
+  const te = Math.min(tl, tf);
+  ctx.strokeStyle = col; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath();
+  for (let s = 0; s <= 40; s++) {
+    const tau = te * s / 40, r = v * tau, a = -dir * w * (tl - tau);
+    const px = dx * r, py = dy * r;
+    const qx = cx + px * Math.cos(a) - py * Math.sin(a), qy = cy + px * Math.sin(a) + py * Math.cos(a);
+    s ? ctx.lineTo(qx, qy) : ctx.moveTo(qx, qy);
+  }
+  ctx.stroke();
+  if (tl < tf) { circle(ctx, cx + dx * v * tl, cy + dy * v * tl, 9, '#fff'); circle(ctx, cx + dx * v * tl, cy + dy * v * tl, 6, col); }
+  label(ctx, cap1, cx, cy + R + 34, { size: 16, wt: 600 });
+  label(ctx, cap2, cx, cy + R + 60, { size: 18, wt: 700, color: col });
+  P.zones.push({ x: cx - R - 20, y: cy - R - 20, w: 2 * R + 40, h: 2 * R + 40, cursor: 'crosshair', drag: (px, py, phase) => {
+    d.ang = Math.atan2(py - cy, px - cx); if (phase !== 'move') d.t0 = P.clock; } });
+}
+
+function drawCells(ctx, gx, gy, r1, r2, defs, t, alpha = 1) {
+  if (alpha <= 0.01) return;
+  ctx.save(); ctx.globalAlpha = alpha;
+  for (const c of defs) for (const sx of [1, -1]) for (const sy of [1, -1]) {
+    const path = Path(mapPolar(cellPts(c.a, c.b, r1, r2, c.rev), gx, gy, sx, sy));
+    cellFlow(ctx, path, t, c.col, { band: c.band || (typeof c.col === 'string' ? rgba(c.col, 0.1) : null), pxs: 40, n: 5, dots: 7 });
+  }
+  ctx.restore();
+}
+const THREE_CELLS = [
+  { a: 0, b: 30, rev: false, col: C.hadley, name: 'แฮดลีย์' },
+  { a: 30, b: 60, rev: true, col: C.ferrel, name: 'เฟอร์เรล' },
+  { a: 60, b: 90, rev: false, col: C.polar, name: 'ขั้วโลก' },
+];
+function dSingle(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  const k = smooth(0.3, 0.75, st.rot);
+  label(ctx, 'สมมติฐาน:', X0, 228, { size: 18, wt: 700, color: th.a, align: 'left' });
+  let x = X0 + 96;
+  ['โลกไม่หมุน', 'ผิวโลกเหมือนกันทั้งหมด', 'ดวงอาทิตย์ตั้งฉากที่ศูนย์สูตร'].forEach((p, i) => {
+    const w = label(ctx, p, x + 8, 228, { size: 16, wt: 600, align: 'left', bg: th.t, pad: 8 });
+    if (i === 0 && st.rot > 0.05) { ctx.strokeStyle = C.lo; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 2, 228); ctx.lineTo(x + w + 14, 228); ctx.stroke(); }
+    x += w + 30;
+  });
+  const gy = 630, R = 186, r1 = R + 14, r2 = R + 88;
+  if (k > 0.02) {
+    ctx.save(); ctx.globalAlpha = k; ctx.strokeStyle = 'rgba(30,40,60,0.6)'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(cx, gy - r2 - 24); ctx.lineTo(cx, gy + r2 + 20); ctx.stroke(); ctx.restore();
+  }
+  shell(ctx, cx, gy, R + 2, r2 + 10);
+  globe(ctx, cx, gy, R);
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, gy, R, 0, Math.PI * 2); ctx.clip();
+  const g = ctx.createLinearGradient(0, gy - 50, 0, gy + 50);
+  g.addColorStop(0, 'rgba(255,200,60,0)'); g.addColorStop(0.5, 'rgba(255,190,60,0.55)'); g.addColorStop(1, 'rgba(255,200,60,0)');
+  ctx.fillStyle = g; ctx.fillRect(cx - R, gy - 50, 2 * R, 100); ctx.restore();
+  const warmCold = (q) => { const phi = Math.abs(Math.atan2(gy - q.y, Math.abs(q.x - cx))) / D2R; return mix('#f76707', '#1c7ed6', phi / 90); };
+  drawCells(ctx, cx, gy, r1, r2, [{ a: 0, b: 90, rev: false, col: warmCold, band: 'rgba(240,140,60,0.08)' }], t, 1 - k);
+  drawCells(ctx, cx, gy, r1, r2, THREE_CELLS, t, k);
+  bigLetter(ctx, 'L', cx + R - 32, gy, C.lo, 20); bigLetter(ctx, 'L', cx - R + 32, gy, C.lo, 20);
+  bigLetter(ctx, 'H', cx, gy - R + 32, C.hi, 20); bigLetter(ctx, 'H', cx, gy + R - 32, C.hi, 20);
+  if (k < 0.5) {
+    label(ctx, 'ขั้วโลก: อากาศเย็นจมตัว', X1, 300, { size: 16, wt: 600, align: 'right', bg: 'rgba(251,248,241,0.9)', pad: 5 });
+    label(ctx, 'ศูนย์สูตร: อากาศร้อนลอยตัว', X1, 960, { size: 16, wt: 600, align: 'right', bg: 'rgba(251,248,241,0.9)', pad: 5 });
+    label(ctx, 'ลมผิวพื้น: ขั้วโลก → ศูนย์สูตร', X0, 960, { size: 16, wt: 600, align: 'left', bg: 'rgba(251,248,241,0.9)', pad: 5 });
+  } else {
+    THREE_CELLS.forEach(c => { const pm = (c.a + c.b) / 2 * D2R, rm = (r1 + r2) / 2;
+      label(ctx, c.name, cx + rm * Math.cos(pm), gy - rm * Math.sin(pm), { size: 15, wt: 700, color: c.col, bg: 'rgba(255,255,255,0.9)', pad: 4 }); });
+  }
+  const msg = k < 0.2 ? '**โลกไม่หมุน:** อากาศไหลจากศูนย์สูตรไปขั้วโลกได้ตรง ๆ เกิด**เซลล์เดียว**ในแต่ละซีกโลก'
+    : k < 0.8 ? '**เริ่มหมุน:** แรงคอริออลิสเบี่ยงอากาศชั้นบน ทำให้ไปไม่ถึงขั้วโลก เซลล์เริ่มแตกออก'
+    : '**หมุนเหมือนโลกจริง:** การหมุนเวียนแบ่งเป็น **3 เซลล์** คือ แฮดลีย์ เฟอร์เรล และขั้วโลก';
+  ctx.fillStyle = rgba(th.a, 0.08); rr(ctx, X0, 978, X1 - X0, 54, 12); ctx.fill();
+  para(ctx, msg, X0 + 16, 988, X1 - X0 - 32, 17, { bcolor: th.a });
+  slider(ctx, P, 'rot', X0 + 40, 1078, X1 - X0 - 80, { title: '', left: 'โลกไม่หมุน (เซลล์เดียว)', right: 'หมุนจริง (3 เซลล์)' });
+  label(ctx, 'ลากปุ่มเพื่อเพิ่มการหมุนของโลก', cx, 1052, { size: 16, wt: 600, color: th.a });
+}
+
+function surfaceWind(lat) {
+  const a = Math.abs(lat), nh = lat >= 0;
+  if (a < 5) return { cell: 'รอยต่อเซลล์แฮดลีย์ทั้งสองซีกโลก', col: C.hadley, wind: 'ลมสงบ (Doldrums) อากาศลอยตัว', belt: 'ความกดอากาศต่ำศูนย์สูตร (ITCZ)', wx: 'เมฆมาก ฝนตกชุก เขตป่าดิบชื้น', v: null };
+  if (a < 26) return { cell: 'เซลล์แฮดลีย์', col: C.hadley, wind: nh ? 'ลมค้าตะวันออกเฉียงเหนือ (พัดจาก NE ไป SW)' : 'ลมค้าตะวันออกเฉียงใต้ (พัดจาก SE ไป NW)', belt: 'อยู่ระหว่างแถบ L ศูนย์สูตร กับ H กึ่งโซนร้อน', wx: 'ลมพัดสม่ำเสมอ อากาศร้อน', v: [-1, nh ? 0.5 : -0.5] };
+  if (a < 35) return { cell: 'รอยต่อแฮดลีย์–เฟอร์เรล', col: '#a0522d', wind: 'ลมอ่อน อากาศจมตัว (Horse latitudes)', belt: 'ความกดอากาศสูงกึ่งโซนร้อน', wx: 'ท้องฟ้าโปร่ง แห้งแล้ง เขตทะเลทราย', v: null };
+  if (a < 56) return { cell: 'เซลล์เฟอร์เรล', col: C.ferrel, wind: nh ? 'ลมตะวันตก (พัดจาก SW ไป NE)' : 'ลมตะวันตก (พัดจาก NW ไป SE)', belt: 'อยู่ระหว่างแถบ H กึ่งโซนร้อน กับ L กึ่งขั้วโลก', wx: 'อากาศแปรปรวน มีพายุหมุนนอกเขตร้อน', v: [1, nh ? -0.45 : 0.45] };
+  if (a < 65) return { cell: 'รอยต่อเฟอร์เรล–ขั้วโลก', col: '#1864ab', wind: 'ลมตะวันตกปะทะลมตะวันออกขั้วโลก อากาศลอยตัว', belt: 'ความกดอากาศต่ำกึ่งขั้วโลก (แนวปะทะขั้วโลก)', wx: 'เมฆ ฝน และพายุบ่อย', v: null };
+  if (a < 85) return { cell: 'เซลล์ขั้วโลก', col: C.polar, wind: nh ? 'ลมตะวันออกขั้วโลก (พัดจาก NE ไป SW)' : 'ลมตะวันออกขั้วโลก (พัดจาก SE ไป NW)', belt: 'อยู่ระหว่างแถบ L กึ่งขั้วโลก กับ H ขั้วโลก', wx: 'หนาวเย็น', v: [-1, nh ? 0.35 : -0.35] };
+  return { cell: 'ขั้วโลก', col: C.polar, wind: 'อากาศเย็นจัดจมตัว ลมพัดออกจากขั้วโลก', belt: 'ความกดอากาศสูงขั้วโลก', wx: 'หนาวจัดและแห้ง', v: null };
+}
+function dThree(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  hint(ctx, P, 'ลากขึ้น-ลงบนโลกเพื่อสำรวจลมในแต่ละละติจูด', 226);
+  const gx = cx + 26, gy = 566, R = 178, r1 = R + 12, r2 = R + 80;
+  ctx.strokeStyle = 'rgba(30,40,60,0.55)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(gx, gy - r2 - 30); ctx.lineTo(gx, gy + r2 + 26); ctx.stroke();
+  ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(gx, gy - r2 - 20, 28, 7, 0, 0.1, Math.PI - 0.1); ctx.stroke();
+  chevron(ctx, gx + 27, gy - r2 - 18, -1.2, 'rgba(30,40,60,0.7)', 8);
+  shell(ctx, gx, gy, R + 2, r2 + 8);
+  globe(ctx, gx, gy, R);
+  drawCells(ctx, gx, gy, r1, r2, THREE_CELLS, t);
+  THREE_CELLS.forEach(c => { const pm = (c.a + c.b) / 2 * D2R, rm = (r1 + r2) / 2;
+    for (const sy of [1, -1]) label(ctx, c.name, gx + rm * Math.cos(pm), gy - sy * rm * Math.sin(pm), { size: 14, wt: 700, color: c.col, bg: 'rgba(255,255,255,0.9)', pad: 4 }); });
+  // prevailing winds on the globe face
+  const rows = [[15, -1, 0.5], [45, 1, -0.45], [72, -1, 0.35]];
+  ctx.save(); ctx.beginPath(); ctx.arc(gx, gy, R, 0, Math.PI * 2); ctx.clip();
+  for (const [lat0, dx, dy0] of rows) for (const sy of [1, -1]) {
+    const lat = lat0 * sy, y = gy - R * Math.sin(lat * D2R), half = R * Math.cos(lat * D2R) * 0.85, dy = dy0 * sy;
+    const n = Math.max(3, Math.round(half / 42)), nx = dx / Math.hypot(dx, dy), ny = dy / Math.hypot(dx, dy);
+    for (let k = 0; k < n * 2; k++) {
+      const f = mod1(k / (2 * n) + t * 0.1 * dx * 60 / half), px = gx - half + f * 2 * half, al = Math.sin(Math.PI * f);
+      arrow(ctx, px - nx * 14, y - ny * 14, px + nx * 14, y + ny * 14, { color: `rgba(255,255,255,${0.9 * al})`, w: 3, head: 9 });
+    }
+  }
+  ctx.restore();
+  // belts on the left limb
+  for (const [lat, L] of [[90, 'H'], [60, 'L'], [30, 'H'], [0, 'L'], [-30, 'H'], [-60, 'L'], [-90, 'H']]) {
+    const rr2 = r2 + 22; let px = gx - rr2 * Math.cos(lat * D2R), py = gy - rr2 * Math.sin(lat * D2R);
+    if (Math.abs(lat) === 90) { px = gx - 52; py = gy - Math.sign(lat) * (r2 + 8); }
+    bigLetter(ctx, L, px, py, L === 'H' ? C.hi : C.lo, 14);
+    label(ctx, lat === 0 ? '0°' : Math.abs(lat) + '°' + (lat > 0 ? 'N' : 'S'), px - 22, py, { size: 13, wt: 600, color: C.soft, align: 'right' });
+  }
+  // probe
+  const lat = st.lat, yp = gy - R * Math.sin(lat * D2R), hp = R * Math.cos(lat * D2R);
+  ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
+  ctx.beginPath(); ctx.moveTo(gx - hp - 6, yp); ctx.lineTo(gx + r2 + 14, yp); ctx.stroke(); ctx.setLineDash([]);
+  const info = surfaceWind(lat);
+  const px = gx - hp * 0.35;
+  if (info.v) {
+    const [vx, vy] = info.v, nn = Math.hypot(vx, vy);
+    arrow(ctx, px - vx / nn * 34, yp - vy / nn * 34, px + vx / nn * 34, yp + vy / nn * 34, { color: '#ffd43b', w: 7, head: 20 });
+  } else circle(ctx, px, yp, 9, '#ffd43b');
+  P.zones.push({ x: gx - r2 - 40, y: gy - r2 - 10, w: 2 * r2 + 80, h: 2 * r2 + 20, cursor: 'ns-resize', drag: (qx, qy) => { st.lat = Math.round(Math.asin(clamp((gy - qy) / R, -1, 1)) / D2R); } });
+  // info card
+  const cy0 = 880;
+  ctx.fillStyle = rgba(info.col, 0.09); rr(ctx, X0, cy0, X1 - X0, 190, 14); ctx.fill();
+  ctx.fillStyle = info.col; rr(ctx, X0, cy0, 7, 190, 3); ctx.fill();
+  label(ctx, `ละติจูด ${Math.abs(lat)}°${lat > 0 ? 'N' : lat < 0 ? 'S' : ''}  ·  ${info.cell}`, X0 + 22, cy0 + 28, { size: 22, wt: 600, color: info.col, align: 'left', fam: F.display });
+  let y = cy0 + 50;
+  y = para(ctx, '**ลมผิวพื้น:** ' + info.wind, X0 + 22, y, X1 - X0 - 40, 19, { bcolor: C.ink });
+  y = para(ctx, '**แถบความกดอากาศ:** ' + info.belt, X0 + 22, y, X1 - X0 - 40, 19, { bcolor: C.ink });
+  para(ctx, '**ลักษณะอากาศ:** ' + info.wx, X0 + 22, y, X1 - X0 - 40, 19, { bcolor: C.ink });
+}
+
+function dCross(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  label(ctx, 'ภาพตัดขวางจากละติจูด 20°S ถึงขั้วโลกเหนือ', cx, 222, { size: 17, wt: 600, color: C.soft });
+  const xL = X0 + 50, xR = X1 - 10, y0 = 700, kmPx = 24;
+  const LX = (lat) => xL + (xR - xL) * (lat + 20) / 110, KY = (km) => y0 - km * kmPx;
+  const s = st.sun * 0.72, b1 = s, b2 = 30 + s * 0.4, b3 = 60 + s * 0.25;
+  const sky = ctx.createLinearGradient(0, KY(18), 0, y0); sky.addColorStop(0, '#d6e6f5'); sky.addColorStop(1, '#f1f6fb');
+  ctx.fillStyle = sky; ctx.fillRect(xL, KY(18), xR - xL, y0 - KY(18));
+  for (const km of [0, 5, 10, 15]) { ctx.fillStyle = 'rgba(37,48,58,0.4)'; ctx.fillRect(xL - 6, KY(km), 6, 1.5); label(ctx, String(km), xL - 10, KY(km), { size: 13, color: C.soft, align: 'right' }); }
+  label(ctx, 'กม.', xL - 10, KY(17.5), { size: 13, color: C.soft, align: 'right' });
+  ctx.save(); ctx.beginPath(); ctx.rect(xL, KY(18), xR - xL, y0 - KY(18) + 1); ctx.clip();
+  ctx.strokeStyle = '#7b5ea7'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]);
+  for (const [a, b, h1, h2] of [[b1 - 30, b2 - 2, 16.5, 15.5], [b2 + 2, b3 - 2, 12.2, 10.6], [b3 + 2, 92, 9.2, 8]]) {
+    ctx.beginPath(); ctx.moveTo(LX(a), KY(h1)); ctx.lineTo(LX(b), KY(h2)); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  const cells = [
+    { a: b1 - 28, b: b1 - 2, top: 14, rev: true, col: C.hadley, name: '' },
+    { a: b1 + 2, b: b2 - 2, top: 14, rev: false, col: C.hadley, name: 'แฮดลีย์' },
+    { a: b2 + 2, b: b3 - 2, top: 9.6, rev: true, col: C.ferrel, name: 'เฟอร์เรล' },
+    { a: b3 + 2, b: 88, top: 7, rev: false, col: C.polar, name: 'ขั้วโลก' },
+  ];
+  for (const c of cells) {
+    const x = LX(c.a), w = LX(c.b) - x, y = KY(c.top), h = KY(0.8) - y;
+    const pts = rrectPts(x, y, w, h, 34); if (c.rev) pts.reverse();
+    const path = Path(pts);
+    cellFlow(ctx, path, t, c.col, { band: rgba(c.col, 0.09), pxs: 44, n: 6, dots: 9 });
+    if (c.name) label(ctx, 'เซลล์' + c.name, x + w / 2, y + h / 2, { size: 17, wt: 700, color: c.col, bg: 'rgba(255,255,255,0.88)', pad: 5 });
+  }
+  ctx.restore();
+  label(ctx, 'โทรโพพอส', LX(80), KY(8) - 16, { size: 14, wt: 600, color: '#7b5ea7' });
+  for (const [lat, km, name] of [[b2, 13, 'ลมกรดกึ่งโซนร้อน'], [b3, 10, 'ลมกรดขั้วโลก']]) {
+    const x = LX(lat), y = KY(km), p = 0.5 + 0.5 * Math.sin(t * 3);
+    circle(ctx, x, y, 14 + p * 3, 'rgba(123,94,167,0.18)'); circle(ctx, x, y, 12, '#fff');
+    ctx.strokeStyle = '#7b5ea7'; ctx.lineWidth = 2.5; ring(ctx, x, y, 12);
+    label(ctx, 'J', x, y, { size: 14, wt: 700, color: '#7b5ea7' });
+    label(ctx, name, x, y - 26, { size: 13, wt: 600, color: '#7b5ea7', bg: 'rgba(255,255,255,0.85)', pad: 3 });
+  }
+  const gg = ctx.createLinearGradient(0, y0, 0, y0 + 40); gg.addColorStop(0, '#8fa45c'); gg.addColorStop(1, '#6d7d43');
+  ctx.fillStyle = gg; ctx.fillRect(xL, y0, xR - xL, 40);
+  for (const lat of [-20, 0, 30, 60, 90]) label(ctx, lat < 0 ? '20°S' : lat + '°', clamp(LX(lat), xL + 18, xR - 16), y0 + 20, { size: 14, wt: 600, color: '#fff' });
+  // Thailand pin
+  const tx = LX(13); ctx.fillStyle = '#c92a2a'; ctx.beginPath(); ctx.moveTo(tx, y0 - 2); ctx.lineTo(tx - 7, y0 - 18); ctx.lineTo(tx + 7, y0 - 18); ctx.closePath(); ctx.fill();
+  circle(ctx, tx, y0 - 22, 7, '#c92a2a');
+  // pressure + rain at the ground
+  for (const [lat, L, wx] of [[b1, 'L', 'ITCZ ฝนชุก'], [b2, 'H', 'แห้งแล้ง'], [b3, 'L', 'พายุ/แนวปะทะ']]) {
+    const x = clamp(LX(lat), xL + 40, xR - 40);
+    bigLetter(ctx, L, x, y0 + 66, L === 'H' ? C.hi : C.lo, 15);
+    label(ctx, wx, x, y0 + 98, { size: 14, wt: 600, color: C.soft });
+    if (L === 'L') for (let k = 0; k < 6; k++) { const ry = KY(2.5) + mod1(t * 0.9 + k * 0.17) * 50; ctx.strokeStyle = 'rgba(28,126,214,0.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 20 + k * 8, ry); ctx.lineTo(x - 23 + k * 8, ry + 9); ctx.stroke(); }
+  }
+  // status for Thailand
+  const d = Math.abs(b1 - 13);
+  const status = d < 7 ? ['ร่องมรสุม (ITCZ) พาดผ่านประเทศไทย → ฝนตกชุก (ฤดูฝน)', '#1971c2']
+    : b1 < 13 ? ['ITCZ อยู่ทางใต้ของไทย ไทยอยู่ใต้อิทธิพลลมค้า/มรสุมตะวันออกเฉียงเหนือ → อากาศแห้งและเย็น', '#a0522d']
+    : ['ITCZ เลื่อนขึ้นไปทางเหนือของไทย ฝนเริ่มลดลง', '#2b8a3e'];
+  const sun = st.sun, months = sun > 18 ? 'มิ.ย.' : sun > 7 ? 'พ.ค. หรือ ก.ค.–ส.ค.' : sun > -7 ? 'มี.ค. หรือ ก.ย.' : sun > -18 ? 'ก.พ. หรือ ต.ค.–พ.ย.' : 'ธ.ค.';
+  ctx.fillStyle = rgba(status[1], 0.09); rr(ctx, X0, 842, X1 - X0, 150, 14); ctx.fill();
+  label(ctx, `ดวงอาทิตย์ตั้งฉากที่ ${Math.abs(Math.round(sun))}°${sun >= 0 ? 'N' : 'S'}  (ประมาณเดือน ${months})`, X0 + 18, 870, { size: 19, wt: 600, align: 'left', color: C.ink });
+  para(ctx, '**ประเทศไทย (~13°N):** ' + status[0], X0 + 18, 892, X1 - X0 - 36, 19, { bcolor: status[1] });
+  para(ctx, 'เซลล์ทั้งหมดเลื่อนตามตำแหน่งที่ดวงอาทิตย์ตั้งฉาก เซลล์เฟอร์เรลหมุนตามเซลล์ข้างเคียงคล้ายเฟืองที่ขบกัน', X0 + 18, 946, X1 - X0 - 36, 16, { color: C.soft });
+  slider(ctx, P, 'sun', X0 + 40, 1072, X1 - X0 - 80, { min: -23.5, max: 23.5, left: 'ธ.ค. (ดวงอาทิตย์ 23.5°S)', right: 'มิ.ย. (ดวงอาทิตย์ 23.5°N)' });
+  label(ctx, 'ลากปุ่มเพื่อเปลี่ยนฤดู', cx, 1040, { size: 16, wt: 600, color: th.a });
+}
+
+function dUpwell(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  const w = st.w, s = Math.sign(w), mag = Math.abs(w);
+  const x = X0, W = X1 - X0, top = 214, sY = top + 74, bot = top + 540, xL = x + W * 0.73;
+  ctx.save(); rr(ctx, x, top, W, bot - top, 16); ctx.clip();
+  const sea = ctx.createLinearGradient(0, sY, 0, bot); sea.addColorStop(0, '#5cc3df'); sea.addColorStop(0.45, '#1f6fa8'); sea.addColorStop(1, '#0b2f57');
+  ctx.fillStyle = sea; ctx.fillRect(x, sY - 30, W, bot - sY + 30);
+  const pile = (X) => -16 * Math.max(-w, 0) * smooth(x + W * 0.3, xL, X) + 8 * Math.max(w, 0) * smooth(x + W * 0.3, xL, X);
+  const surf = (X) => sY + 3 * Math.sin(X * 0.05 + t * 2) + pile(X);
+  const sky = ctx.createLinearGradient(0, top, 0, sY); sky.addColorStop(0, '#cfe6f7'); sky.addColorStop(1, '#eef6fc');
+  ctx.fillStyle = sky; ctx.beginPath(); ctx.moveTo(x, top);
+  for (let X = x; X <= x + W; X += 8) ctx.lineTo(X, surf(X));
+  ctx.lineTo(x + W, top); ctx.closePath(); ctx.fill();
+  // thermocline
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2; ctx.setLineDash([10, 7]); ctx.beginPath();
+  for (let X = x; X <= xL - 40; X += 8) { const yy = sY + 190 - w * 120 * smooth(x + W * 0.25, xL - 40, X); X === x ? ctx.moveTo(X, yy) : ctx.lineTo(X, yy); }
+  ctx.stroke(); ctx.setLineDash([]);
+  label(ctx, 'เทอร์โมไคลน์', x + 70, sY + 176, { size: 14, wt: 600, color: 'rgba(255,255,255,0.9)' });
+  // flow loop
+  const ctrl = [[xL - 50, sY + 26], [x + 110, sY + 26], [x + 60, sY + 160], [x + 140, sY + 320], [x + W * 0.45, sY + 335], [x + W * 0.57, sY + 210], [xL - 92, sY + 96]];
+  let pts = chaikin(ctrl, 3); if (s < 0) pts = pts.reverse();
+  const path = Path(pts);
+  const ph = phaseAdvance(st, 'ph', t, 0.075 * mag);
+  if (mag > 0.04) {
+    strokeP(ctx, path, `rgba(255,255,255,${0.25 + 0.3 * mag})`, 3, [10, 9], -ph * path.len);
+    for (let k = 0; k < 40; k++) {
+      const q = path.at(k / 40 + ph), f = clamp((q.y - sY) / 300, 0, 1);
+      const col = s > 0 ? mix('#2a7fd4', '#9be7ff', (1 - f) * clamp((xL - q.x) / (W * 0.55), 0, 1)) : mix('#ffa94d', '#5c7cfa', f);
+      circle(ctx, q.x, q.y, 4.5, col);
+      if (s > 0 && k % 3 === 0) circle(ctx, q.x + 7, q.y - 4, 2.5, '#69db7c');
+    }
+    for (let k = 0; k < 7; k++) { const q = path.at(k / 7 + ph); chevron(ctx, q.x, q.y, q.ang, 'rgba(255,255,255,0.9)', 11); }
+  }
+  // fish & bubbles
+  const fish = Math.round(6 * Math.max(w, 0));
+  for (let i = 0; i < fish; i++) {
+    const fx = x + W * 0.38 + i * 40 + 18 * Math.sin(t * 0.9 + i), fy = sY + 50 + (i % 3) * 22 + 4 * Math.sin(t * 2 + i), dir = Math.cos(t * 0.9 + i) > 0 ? 1 : -1;
+    ctx.fillStyle = '#0b5e65'; ctx.beginPath(); ctx.ellipse(fx, fy, 13, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(fx - dir * 11, fy); ctx.lineTo(fx - dir * 21, fy - 7); ctx.lineTo(fx - dir * 21, fy + 7); ctx.closePath(); ctx.fill();
+  }
+  if (w < -0.1) for (let i = 0; i < 4; i++) { const u = mod1(t * 0.12 * mag + i / 4); label(ctx, 'O₂', xL - 95 + i * 8, sY + 30 + u * 240, { size: 14, wt: 700, color: `rgba(255,255,255,${0.9 * Math.sin(Math.PI * u)})` }); }
+  // land
+  const earth = [[x, bot + 5], [x, bot - 12], [x + W * 0.45, bot - 34], [x + W * 0.62, sY + 240], [xL - 20, sY + 60], [xL, sY - 6], [xL + 40, sY - 26], [x + W, sY - 34], [x + W, bot + 5]];
+  const eg = ctx.createLinearGradient(0, sY - 40, 0, bot); eg.addColorStop(0, '#c9ae78'); eg.addColorStop(1, '#7d6440');
+  ctx.fillStyle = eg; ctx.beginPath(); earth.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#6d8f3c'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(xL + 2, sY - 8); ctx.lineTo(xL + 40, sY - 28); ctx.lineTo(x + W, sY - 36); ctx.stroke();
+  label(ctx, 'ทวีป', x + W * 0.88, sY + 80, { size: 20, wt: 700, color: 'rgba(255,255,255,0.85)' });
+  // wind symbol
+  const wx = xL - 215, wy = top + 34;
+  if (mag > 0.06) {
+    circle(ctx, wx, wy, 16, '#fff'); ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ring(ctx, wx, wy, 16);
+    if (s > 0) circle(ctx, wx, wy, 5, C.ink); else { ctx.beginPath(); ctx.moveTo(wx - 9, wy - 9); ctx.lineTo(wx + 9, wy + 9); ctx.moveTo(wx + 9, wy - 9); ctx.lineTo(wx - 9, wy + 9); ctx.stroke(); }
+    label(ctx, s > 0 ? 'ลมพัดลงใต้ ⊙' : 'ลมพัดขึ้นเหนือ ⊗', wx + 26, wy, { size: 16, wt: 600, align: 'left' });
+    label(ctx, s > 0 ? '← น้ำผิวหน้าไหลออกจากฝั่ง' : 'น้ำผิวหน้าไหลเข้าหาฝั่ง →', x + 16, top + 34, { size: 16, wt: 600, align: 'left' });
+  } else label(ctx, 'ไม่มีลม', wx, wy, { size: 18, wt: 700, color: C.soft });
+  // top-view inset
+  const ix = x + W - 176, iy = top + 12;
+  ctx.fillStyle = 'rgba(255,255,255,0.94)'; rr(ctx, ix, iy, 164, 150, 12); ctx.fill();
+  ctx.fillStyle = '#7cc0e6'; ctx.fillRect(ix + 8, iy + 24, 92, 100); ctx.fillStyle = '#d8c18f'; ctx.fillRect(ix + 100, iy + 24, 56, 100);
+  label(ctx, 'มองจากด้านบน', ix + 82, iy + 13, { size: 12, wt: 600, color: C.soft });
+  arrow(ctx, ix + 20, iy + 54, ix + 20, iy + 32, { color: C.ink, w: 2, head: 7 }); label(ctx, 'N', ix + 30, iy + 36, { size: 12, wt: 700 });
+  if (mag > 0.06) {
+    const L = 30 + 34 * mag;
+    arrow(ctx, ix + 82, iy + 74 - s * L / 2, ix + 82, iy + 74 + s * L / 2, { color: '#495057', w: 4, head: 11 });
+    arrow(ctx, ix + 68, iy + 98, ix + 68 - s * (24 + 20 * mag), iy + 98, { color: '#e03131', w: 4, head: 11 });
+    label(ctx, 'ลม', ix + 118, iy + 60, { size: 12, wt: 700, color: '#495057' });
+    label(ctx, 'น้ำผิว', ix + 40, iy + 114, { size: 12, wt: 700, color: '#e03131' });
+  }
+  label(ctx, 'ชายฝั่งตะวันตกของทวีป · ซีกโลกเหนือ', ix + 82, iy + 138, { size: 11, wt: 600, color: C.soft });
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(40,55,80,0.25)'; ctx.lineWidth = 2; rr(ctx, x, top, W, bot - top, 16); ctx.stroke();
+  P.zones.push({ x, y: top + 170, w: W * 0.72, h: bot - top - 170, cursor: 'ew-resize', drag: (px) => { st.w = clamp((px - (x + W * 0.36)) / (W * 0.33), -1, 1); } });
+  // status
+  const sc = mag < 0.06 ? ['ลมสงบ: ไม่เกิดน้ำผุดหรือน้ำจม', 'น้ำผิวหน้าไม่ถูกพัดไปไหน การหมุนเวียนจึงหยุด', '#495057']
+    : s > 0 ? [`น้ำผุด (Upwelling) ${mag > 0.6 ? 'รุนแรง' : 'เล็กน้อย'}`, 'Ekman transport พาน้ำผิวหน้าออกจากฝั่ง น้ำเย็นที่มีธาตุอาหารผุดขึ้นมาแทน แพลงก์ตอนและปลาชุกชุม เทอร์โมไคลน์ใกล้ฝั่งยกตัวสูงขึ้น', '#1971c2']
+    : [`น้ำจม (Downwelling) ${mag > 0.6 ? 'รุนแรง' : 'เล็กน้อย'}`, 'Ekman transport พาน้ำผิวหน้าเข้าหาฝั่ง น้ำสะสมจนระดับน้ำสูงขึ้นแล้วจมตัว นำออกซิเจนลงสู่ชั้นล่าง แต่ธาตุอาหารที่ผิวน้ำน้อย', '#e8590c'];
+  ctx.fillStyle = rgba(sc[2], 0.09); rr(ctx, X0, 772, X1 - X0, 190, 14); ctx.fill();
+  label(ctx, sc[0], X0 + 18, 800, { size: 24, wt: 600, color: sc[2], align: 'left', fam: F.display });
+  para(ctx, sc[1], X0 + 18, 822, X1 - X0 - 36, 19);
+  label(ctx, '⊙ ลมพุ่งออกจากหน้ากระดาษ   ⊗ ลมพุ่งเข้าไปในหน้ากระดาษ', X0 + 18, 944, { size: 14, wt: 500, color: C.soft, align: 'left' });
+  slider(ctx, P, 'w', X0 + 40, 1068, X1 - X0 - 80, { min: -1, max: 1, left: '← ลมพัดขึ้นเหนือ (น้ำจม)', right: 'ลมพัดลงใต้ (น้ำผุด) →' });
+  label(ctx, 'ลากปุ่ม หรือลากบนทะเล เพื่อเปลี่ยนทิศและความแรงของลม', cx, 1028, { size: 16, wt: 600, color: th.a });
+}
+
+function profile(d, lat) {
+  const Ts = 28 - 29.5 * Math.pow(lat / 90, 1.5), Tdeep = 2 - 2 * Math.max(0, (lat - 60) / 30);
+  const mld = 110 + 90 * lat / 90, T1000 = Math.min(Ts, Tdeep + 3 * (1 - lat / 90));
+  let T;
+  if (d <= mld) T = Ts;
+  else if (d <= 1000) { const f = (d - mld) / (1000 - mld); T = Ts + (T1000 - Ts) * (0.5 - 0.5 * Math.cos(Math.PI * f)); }
+  else T = T1000 + (Tdeep - T1000) * Math.pow((d - 1000) / 3000, 0.6);
+  const rho = 1.0281 - (T + 2) / 32 * 0.0040 + d / 4000 * 0.0003;
+  return { T, rho, Ts, Tdeep };
+}
+function dLayers(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  const lat = st.lat;
+  const DY = [[0, 262], [200, 420], [1000, 640], [4000, 990]];
+  const dToY = (d) => { for (let i = 1; i < DY.length; i++) if (d <= DY[i][0]) return lerp(DY[i - 1][1], DY[i][1], (d - DY[i - 1][0]) / (DY[i][0] - DY[i - 1][0])); return 990; };
+  const yToD = (y) => { for (let i = 1; i < DY.length; i++) if (y <= DY[i][1]) return lerp(DY[i - 1][0], DY[i][0], (y - DY[i - 1][1]) / (DY[i][1] - DY[i - 1][1])); return 4000; };
+  const c0 = X0 + 60, c1 = X0 + 352, { Ts, Tdeep } = profile(0, lat), strength = clamp((Ts - Tdeep) / 24, 0, 1);
+  ctx.fillStyle = '#e6f2fb'; ctx.fillRect(c0, 222, c1 - c0, 40);
+  const mixTop = mix('#3f79a8', '#79d6ea', strength), mixBot = mix('#2f6596', '#45aed6', strength);
+  let g = ctx.createLinearGradient(0, 262, 0, 420); g.addColorStop(0, mixTop); g.addColorStop(1, mixBot); ctx.fillStyle = g; ctx.fillRect(c0, 262, c1 - c0, 158);
+  g = ctx.createLinearGradient(0, 420, 0, 640); g.addColorStop(0, mixBot); g.addColorStop(1, '#1a4f87'); ctx.fillStyle = g; ctx.fillRect(c0, 420, c1 - c0, 220);
+  g = ctx.createLinearGradient(0, 640, 0, 990); g.addColorStop(0, '#16477e'); g.addColorStop(1, '#0a2647'); ctx.fillStyle = g; ctx.fillRect(c0, 640, c1 - c0, 350);
+  ctx.save(); ctx.beginPath(); ctx.rect(c0, 222, c1 - c0, 768); ctx.clip();
+  for (let k = 0; k < 4; k++) {
+    const sx = c0 + 50 + k * 70 + 14 * Math.sin(t * 0.4 + k);
+    const sg = ctx.createLinearGradient(0, 262, 0, 430); sg.addColorStop(0, `rgba(255,255,230,${0.3 * strength + 0.06})`); sg.addColorStop(1, 'rgba(255,255,230,0)');
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.moveTo(sx, 262); ctx.lineTo(sx + 26, 262); ctx.lineTo(sx + 60, 430); ctx.lineTo(sx + 20, 430); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = '#e6f2fb'; ctx.beginPath(); ctx.moveTo(c0, 222);
+  for (let X = c0; X <= c1; X += 6) ctx.lineTo(X, 262 + 4 * Math.sin(X * 0.06 + t * 2.2));
+  ctx.lineTo(c1, 222); ctx.closePath(); ctx.fill();
+  for (let e = 0; e < 4; e++) {
+    const ex = c0 + 45 + e * 70, ey = 330 + (e % 2) * 40, r = 26;
+    for (let k = 0; k < 5; k++) { const a = t * 1.4 * (e % 2 ? 1 : -1) + k * 1.256; circle(ctx, ex + Math.cos(a) * r, ey + Math.sin(a) * r * 0.6, 3, 'rgba(255,255,255,0.7)'); }
+  }
+  ctx.strokeStyle = `rgba(255,255,255,${0.15 + 0.3 * strength})`; ctx.lineWidth = 1.5;
+  for (let k = 0; k < 7; k++) { const yy = 440 + k * 28 - k * k * 1.2; ctx.beginPath(); for (let X = c0; X <= c1; X += 8) { const v = yy + 3 * Math.sin(X * 0.03 + k + t * 0.5); X === c0 ? ctx.moveTo(X, v) : ctx.lineTo(X, v); } ctx.stroke(); }
+  for (let k = 0; k < 10; k++) circle(ctx, c0 + mod1(k * 0.37 + t * 0.006) * (c1 - c0), 680 + k * 30, 2.2, 'rgba(255,255,255,0.35)');
+  ctx.restore();
+  const tag = (txt, sub, pct, y, al = 1) => {
+    label(ctx, txt, c0 + 14, y, { size: 19, wt: 700, color: `rgba(255,255,255,${al})`, align: 'left' });
+    label(ctx, sub, c0 + 14, y + 24, { size: 14, wt: 500, color: `rgba(255,255,255,${0.85 * al})`, align: 'left' });
+    if (pct) label(ctx, pct, c1 - 14, y, { size: 14, wt: 700, color: '#0b2647', align: 'right', bg: 'rgba(255,255,255,0.85)', pad: 5 });
+  };
+  tag('ชั้นน้ำผสม', 'Mixed layer', '≈2%', 384);
+  if (strength > 0.15) tag('ชั้นพิกโนไคลน์', 'Pycnocline', '≈18%', 520, clamp(strength * 1.5, 0.4, 1));
+  else tag('แทบไม่มีพิกโนไคลน์', 'น้ำเย็นเกือบทั้งลำน้ำ', '', 520);
+  tag('ชั้นน้ำลึก', 'Deep layer', '≈80%', 800);
+  for (const [d, txt] of [[0, '0 m'], [200, '200 m'], [1000, '1,000 m'], [4000, '4,000 m']]) {
+    ctx.fillStyle = 'rgba(37,48,58,0.5)'; ctx.fillRect(c0 - 8, dToY(d), 8, 1.5);
+    label(ctx, txt, c0 - 12, dToY(d), { size: 13, wt: 600, color: C.soft, align: 'right' });
+  }
+  // graph
+  const g0 = c1 + 56, g1 = X1 - 6, Tx = (T) => lerp(g0, g1, (T + 2) / 32), Rx = (r) => lerp(g0, g1, (r - 1.0240) / 0.0045);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(g0, 262, g1 - g0, 728);
+  ctx.strokeStyle = 'rgba(37,48,58,0.5)'; ctx.lineWidth = 1.5; ctx.strokeRect(g0, 262, g1 - g0, 728);
+  for (const T of [0, 10, 20, 30]) { label(ctx, String(T), Tx(T), 248, { size: 13, wt: 600, color: '#c92a2a' }); ctx.fillStyle = 'rgba(201,42,42,0.12)'; ctx.fillRect(Tx(T), 262, 1, 728); }
+  label(ctx, 'อุณหภูมิ (°C)', g0, 224, { size: 15, wt: 700, color: '#c92a2a', align: 'left' });
+  for (const r of [1.0245, 1.0265, 1.0285]) label(ctx, r.toFixed(4), Rx(r), 1006, { size: 12, wt: 600, color: '#1971c2' });
+  label(ctx, 'ความหนาแน่น (g/cm³)', g0, 1030, { size: 15, wt: 700, color: '#1971c2', align: 'left' });
+  for (const [key, col, dash] of [['T', '#e03131', null], ['rho', '#1971c2', [9, 6]]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.setLineDash(dash || []); ctx.beginPath();
+    for (let d = 0; d <= 4000; d += 20) { const p = profile(d, lat), X = key === 'T' ? Tx(p.T) : Rx(p.rho); d ? ctx.lineTo(X, dToY(d)) : ctx.moveTo(X, dToY(d)); }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  // probe
+  const held = st.depth != null && P.clock - st.dt < 6;
+  const d = held ? st.depth : 4000 * (0.5 - 0.5 * Math.cos(Math.PI * clamp(mod1(t / 12) * 1.15, 0, 1)));
+  const py = dToY(d), pp = profile(d, lat), pxc = (c0 + c1) / 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(pxc, 230); ctx.lineTo(pxc, py - 14); ctx.stroke();
+  ctx.fillStyle = '#ffd43b'; rr(ctx, pxc - 9, py - 16, 18, 32, 5); ctx.fill(); ctx.strokeStyle = '#7a5d00'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,212,59,0.85)'; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(pxc + 10, py); ctx.lineTo(g1, py); ctx.stroke(); ctx.setLineDash([]);
+  circle(ctx, Tx(pp.T), py, 7, '#e03131'); circle(ctx, Rx(pp.rho), py, 7, '#1971c2');
+  const ry = clamp(py - 34, 286, 950);
+  label(ctx, `${Math.round(d).toLocaleString('en-US')} m · ${pp.T.toFixed(1)} °C · ${pp.rho.toFixed(4)}`, (g0 + g1) / 2, ry, { size: 15, wt: 700, bg: 'rgba(255,255,255,0.95)', border: 'rgba(37,48,58,0.3)', pad: 6 });
+  P.zones.push({ x: c0 - 10, y: 250, w: g1 - c0 + 16, h: 750, cursor: 'ns-resize', drag: (px, qy) => { st.depth = clamp(yToD(qy), 0, 4000); st.dt = P.clock; } });
+  const zone = lat < 23.5 ? 'เขตร้อน' : lat < 66.5 ? 'เขตอบอุ่น' : 'เขตขั้วโลก';
+  slider(ctx, P, 'lat', X0 + 40, 1084, X1 - X0 - 80, { min: 0, max: 90, title: 'ลากเพื่อเปลี่ยนละติจูด', value: `${Math.round(lat)}° · ${zone} · ผิวน้ำ ${Ts.toFixed(1)} °C`, left: 'ศูนย์สูตร', right: 'ขั้วโลก' });
+}
+
+function dGyres(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  const top = 214, bot = 994, latY = (lat) => 604 - lat * 6.1;
+  const sea = ctx.createLinearGradient(0, top, 0, bot); sea.addColorStop(0, '#3e8fc4'); sea.addColorStop(0.5, '#4fa6d6'); sea.addColorStop(1, '#2f78ad');
+  ctx.save(); rr(ctx, X0, top, X1 - X0, bot - top, 16); ctx.clip();
+  ctx.fillStyle = sea; ctx.fillRect(X0, top, X1 - X0, bot - top);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 8]);
+  for (const lat of [60, 30, 0, -30, -60]) { ctx.beginPath(); ctx.moveTo(X0, latY(lat)); ctx.lineTo(X1, latY(lat)); ctx.stroke(); }
+  ctx.setLineDash([]);
+  const bx0 = X0 + 76, bx1 = X1 - 80;
+  for (const [lat, dir, name] of [[15, -1, 'ลมค้า'], [-15, -1, 'ลมค้า'], [45, 1, 'ลมตะวันตก'], [-45, 1, 'ลมตะวันตก']]) {
+    const y = latY(lat), xa = cx - dir * 150, xb = cx + dir * 150;
+    arrow(ctx, xa, y, xb, y, { color: 'rgba(255,255,255,0.22)', w: 18, head: 36 });
+    label(ctx, name, cx, y, { size: 13, wt: 700, color: 'rgba(255,255,255,0.75)' });
+  }
+  const nh = Path(rrectPts(bx0 + 10, latY(50), bx1 - bx0 - 40, latY(8) - latY(50), 90, 14));
+  const sh = Path(rrectPts(bx0 + 10, latY(-8), bx1 - bx0 - 40, latY(-46) - latY(-8), 90, 14).reverse());
+  const ecc = Path([[bx0 + 24, latY(0)], [bx1 - 34, latY(0)]], false);
+  const acc = Path([[X0 + 6, latY(-58)], [X1 - 6, latY(-58)]], false);
+  P.paths = [{ p: nh, k: 'nh' }, { p: sh, k: 'sh' }, { p: ecc, k: 'ecc' }, { p: acc, k: 'acc' }];
+  const tempCol = (q, k) => k === 'acc' ? '#1c7ed6' : k === 'ecc' ? '#f08c00' : mix('#e03131', '#1c7ed6', (q.x - bx0) / (bx1 - bx0));
+  for (const { p, k } of P.paths) {
+    for (let i = 1; i < p.P.length; i++) {
+      const a = p.P[i - 1], b = p.P[i];
+      ctx.strokeStyle = rgba('#ffffff', 0.2); ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+    const n = k === 'nh' || k === 'sh' ? 46 : 16, ph = t * 38 / p.len;
+    for (let j = 0; j < n; j++) { const q = p.at(j / n + ph); circle(ctx, q.x, q.y, 4.5, tempCol(q, k)); }
+    for (let j = 0; j < (n > 20 ? 10 : 4); j++) { const q = p.at((j + 0.5) / (n > 20 ? 10 : 4) + ph); chevron(ctx, q.x, q.y, q.ang, tempCol(q, k), 13); }
+  }
+  const land = (pts) => { ctx.fillStyle = '#d9c89c'; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#a8925f'; ctx.lineWidth = 2; ctx.stroke(); };
+  land([[X0 - 4, latY(66)], [X0 + 70, latY(66)], [X0 + 62, latY(40)], [X0 + 78, latY(20)], [X0 + 60, latY(0)], [X0 + 74, latY(-25)], [X0 + 54, latY(-48)], [X0 - 4, latY(-48)]]);
+  land([[X1 + 4, latY(66)], [X1 - 70, latY(66)], [X1 - 84, latY(45)], [X1 - 68, latY(25)], [X1 - 78, latY(5)], [X1 - 64, latY(-20)], [X1 - 72, latY(-42)], [X1 + 4, latY(-42)]]);
+  for (const lat of [60, 30, 0, -30]) label(ctx, lat === 0 ? '0°' : Math.abs(lat) + '°' + (lat > 0 ? 'N' : 'S'), X0 + 8, latY(lat) - 12, { size: 13, wt: 600, color: '#6b5a3a', align: 'left' });
+  label(ctx, 'ศูนย์สูตร', X1 - 8, latY(0) - 12, { size: 13, wt: 600, color: '#6b5a3a', align: 'right' });
+  arrow(ctx, X1 - 30, top + 74, X1 - 30, top + 30, { color: '#6b5a3a', w: 3, head: 12 }); label(ctx, 'N', X1 - 30, top + 88, { size: 15, wt: 700, color: '#6b5a3a' });
+  const pill = (txt, x, y, col, align = 'left') => label(ctx, txt, x, y, { size: 15, wt: 700, color: '#fff', bg: col, pad: 6, align });
+  pill('กระแสน้ำอุ่น', bx0 + 40, latY(38), '#e03131'); label(ctx, 'เช่น กัลฟ์สตรีม คุโรชิโอะ', bx0 + 34, latY(38) + 24, { size: 13, wt: 600, color: '#fff', align: 'left' });
+  pill('กระแสน้ำเย็น', bx1 - 50, latY(20), '#1c7ed6', 'right'); label(ctx, 'เช่น แคลิฟอร์เนีย คานารี', bx1 - 44, latY(20) + 24, { size: 13, wt: 600, color: '#fff', align: 'right' });
+  pill('กระแสน้ำอุ่น', bx0 + 40, latY(-20), '#e03131'); label(ctx, 'เช่น บราซิล', bx0 + 34, latY(-20) + 24, { size: 13, wt: 600, color: '#fff', align: 'left' });
+  pill('กระแสน้ำเย็น', bx1 - 50, latY(-36), '#1c7ed6', 'right'); label(ctx, 'เช่น ฮัมโบลต์ (เปรู) เบงเกวลา', bx1 - 44, latY(-36) + 24, { size: 13, wt: 600, color: '#fff', align: 'right' });
+  label(ctx, '↻ ตามเข็มนาฬิกา', (bx0 + bx1) / 2 - 15, latY(29), { size: 15, wt: 700, color: '#0b3d6e', bg: 'rgba(255,255,255,0.8)', pad: 6 });
+  label(ctx, '↺ ทวนเข็มนาฬิกา', (bx0 + bx1) / 2 - 15, latY(-27), { size: 15, wt: 700, color: '#0b3d6e', bg: 'rgba(255,255,255,0.8)', pad: 6 });
+  label(ctx, 'กระแสน้ำวนรอบขั้วโลกใต้ (ไหลไปทางตะวันออก)', cx, latY(-58) - 20, { size: 13, wt: 600, color: '#fff' });
+  // drifters
+  st.drifters = st.drifters.filter(dr => t - dr.t0 < 40);
+  for (const dr of st.drifters) {
+    const p = P.paths[dr.pi].p; if (!p) continue;
+    const du = (t - dr.t0) * 38 / p.len;
+    if (!p.closed && dr.u0 + du > 1) continue;
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 3; ctx.beginPath();
+    for (let k = 0; k <= 20; k++) { const q = p.at(dr.u0 + Math.max(0, du - 0.12 * (1 - k / 20))); k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }
+    ctx.stroke();
+    const q = p.at(dr.u0 + du); bottle(ctx, q.x, q.y, q.ang);
+  }
+  // probe
+  if (st.probe) {
+    const { x, y } = st.probe; let best = null;
+    P.paths.forEach((o, i) => { const nn = o.p.nearest(x, y); if (!best || nn.d < best.d) best = { ...nn, i, k: o.k }; });
+    circle(ctx, x, y, 34, 'rgba(255,255,255,0.18)'); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ring(ctx, x, y, 34);
+    let info;
+    if (best && best.d < 80) {
+      const a = best.q.ang, warm = tempCol(best.q, best.k);
+      arrow(ctx, x - Math.cos(a) * 26, y - Math.sin(a) * 26, x + Math.cos(a) * 26, y + Math.sin(a) * 26, { color: '#fff', w: 7, head: 18 });
+      const dirs = ['ตะวันออก', 'ตะวันออกเฉียงใต้', 'ใต้', 'ตะวันตกเฉียงใต้', 'ตะวันตก', 'ตะวันตกเฉียงเหนือ', 'เหนือ', 'ตะวันออกเฉียงเหนือ'];
+      const dname = dirs[Math.round(mod1(a / (2 * Math.PI)) * 8) % 8];
+      const lat = (604 - y) / 6.1, vy = Math.sin(a), vx = Math.cos(a);
+      const pole = Math.abs(vy) > Math.abs(vx) ? ((lat > 0 ? vy < 0 : vy > 0) ? 'ไหลไปทางขั้วโลก' : 'ไหลเข้าหาศูนย์สูตร') : 'ไหลตามแนวละติจูด';
+      const kind = best.k === 'ecc' ? 'กระแสน้ำสวนศูนย์สูตร (อุ่น)' : best.k === 'acc' ? 'กระแสน้ำวนรอบขั้วโลกใต้ (เย็น)'
+        : Math.abs(vy) > Math.abs(vx) ? (pole === 'ไหลไปทางขั้วโลก' ? 'กระแสน้ำอุ่น' : 'กระแสน้ำเย็น') : Math.abs(lat) < 25 ? 'กระแสน้ำศูนย์สูตร (อุ่น)' : 'กระแสน้ำลมตะวันตก (ค่อนข้างเย็น)';
+      info = [kind, `ไหลไปทาง${dname} · ${pole}`, warm];
+    } else info = ['ไม่มีกระแสน้ำหลักบริเวณนี้', 'ลองลากไปใกล้เส้นทางของวงวน', '#495057'];
+    const bxw = 300, bxx = clamp(x - bxw / 2, X0 + 8, X1 - bxw - 8), bxy = y > 600 ? y - 120 : y + 48;
+    ctx.fillStyle = 'rgba(255,255,255,0.96)'; rr(ctx, bxx, bxy, bxw, 70, 10); ctx.fill();
+    ctx.fillStyle = info[2]; rr(ctx, bxx, bxy, 7, 70, 3); ctx.fill();
+    label(ctx, info[0], bxx + 18, bxy + 22, { size: 17, wt: 700, color: info[2], align: 'left' });
+    label(ctx, info[1], bxx + 18, bxy + 50, { size: 14, wt: 600, color: C.ink, align: 'left' });
+  }
+  ctx.restore();
+  P.zones.push({ x: X0, y: top, w: X1 - X0, h: bot - top, cursor: 'crosshair', drag: (px, py, phase) => {
+    if (phase === 'end') {
+      if (st.probe) {
+        let best = null; P.paths.forEach((o, i) => { const nn = o.p.nearest(px, py); if (!best || nn.d < best.d) best = { ...nn, i }; });
+        if (best && best.d < 80) { st.drifters.push({ pi: best.i, u0: best.u, t0: P.clock }); if (st.drifters.length > 4) st.drifters.shift(); }
+      }
+      st.probe = null;
+    } else st.probe = { x: px, y: py };
+  } });
+  hint(ctx, P, 'กดค้างแล้วลากบนมหาสมุทรเพื่อดูทิศทางกระแสน้ำ · ปล่อยเมาส์เพื่อปล่อยขวด', 1024);
+  label(ctx, '● แดง = กระแสน้ำอุ่น   ● น้ำเงิน = กระแสน้ำเย็น   ➜ จาง = ลมประจำ   (แผนภาพมหาสมุทรในอุดมคติ)', cx, 1062, { size: 14, wt: 500, color: C.soft });
+}
+function bottle(ctx, x, y, a) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; rr(ctx, -12, -5, 26, 13, 5); ctx.fill();
+  ctx.fillStyle = '#c3fae8'; rr(ctx, -13, -7, 22, 14, 5); ctx.fill(); ctx.strokeStyle = '#087f5b'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#a0522d'; ctx.fillRect(9, -3, 6, 6);
+  ctx.fillStyle = '#fff3bf'; ctx.fillRect(-8, -3, 10, 6);
+  ctx.restore();
+}
+
+function dThermo(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  const melt = st.melt, sf = 1 - 0.85 * melt;
+  const top = 214, sY = 300, bot = 744;
+  ctx.save(); rr(ctx, X0, top, X1 - X0, bot - top, 16); ctx.clip();
+  ctx.fillStyle = '#eaf3fa'; ctx.fillRect(X0, top, X1 - X0, sY - top);
+  const sea = ctx.createLinearGradient(0, sY, 0, bot); sea.addColorStop(0, '#4fb0d8'); sea.addColorStop(0.35, '#1f6aa5'); sea.addColorStop(1, '#0a2a4f');
+  ctx.fillStyle = sea; ctx.fillRect(X0, sY, X1 - X0, bot - sY);
+  // meltwater lens
+  const lw = 60 + 260 * melt;
+  if (melt > 0.02) { ctx.fillStyle = `rgba(200,240,255,${0.35 + 0.4 * melt})`; ctx.beginPath(); ctx.moveTo(X0 + 70, sY); ctx.quadraticCurveTo(X0 + 70 + lw * 0.5, sY + 10 + 50 * melt, X0 + 70 + lw, sY); ctx.closePath(); ctx.fill(); }
+  const ph1 = phaseAdvance(st, 'p1', t, 0.035 * sf), ph2 = phaseAdvance(st, 'p2', t, 0.03);
+  const nadw = Path(chaikin([[X1 - 270, sY + 26], [X0 + 130, sY + 30], [X0 + 110, sY + 160], [X0 + 130, sY + 262], [X1 - 240, sY + 262], [X1 - 272, sY + 150]], 3));
+  const aabw = Path(chaikin([[X1 - 110, sY + 50], [X1 - 100, sY + 400], [cx - 30, sY + 404], [cx - 40, sY + 330], [X1 - 150, sY + 320]], 3));
+  const tc = (q) => mix('#f76707', '#1c7ed6', clamp((q.y - sY - 20) / 150, 0, 1));
+  strokeP(ctx, nadw, `rgba(255,255,255,${0.2 + 0.25 * sf})`, 3, [10, 9], -ph1 * nadw.len);
+  for (let k = 0; k < 36; k++) { const q = nadw.at(k / 36 + ph1); circle(ctx, q.x, q.y, 4.5, tc(q)); }
+  for (let k = 0; k < 7; k++) { const q = nadw.at(k / 7 + ph1); chevron(ctx, q.x, q.y, q.ang, 'rgba(255,255,255,0.9)', 11); }
+  strokeP(ctx, aabw, 'rgba(255,255,255,0.3)', 3, [10, 9], -ph2 * aabw.len);
+  for (let k = 0; k < 26; k++) { const q = aabw.at(k / 26 + ph2); circle(ctx, q.x, q.y, 4.5, q.y < sY + 60 ? '#74c0fc' : '#0b4f8a'); }
+  for (let k = 0; k < 5; k++) { const q = aabw.at(k / 5 + ph2); chevron(ctx, q.x, q.y, q.ang, 'rgba(255,255,255,0.85)', 10); }
+  ctx.fillStyle = '#3d4a3a'; ctx.beginPath(); ctx.moveTo(X0, bot); ctx.lineTo(X0, sY + 380);
+  for (let X = X0; X <= X1; X += 20) ctx.lineTo(X, sY + 420 + 8 * Math.sin(X * 0.05) - 34 * Math.exp(-Math.pow((X - (cx - 150)) / 50, 2)));
+  ctx.lineTo(X1, bot); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#e9eef2'; ctx.fillRect(X0, sY - 46, 70, 70); ctx.fillStyle = '#8a8f7a'; ctx.fillRect(X0, sY - 10, 70, 40);
+  ctx.fillStyle = '#f8fbff'; ctx.fillRect(X1 - 80, sY - 30, 80, 60);
+  const floes = Math.round(5 * (1 - melt));
+  for (let i = 0; i < floes; i++) { ctx.fillStyle = '#fff'; ctx.fillRect(X0 + 80 + i * 22, sY - 5, 18, 9); }
+  for (let i = 0; i < 4; i++) { ctx.fillStyle = '#fff'; ctx.fillRect(X1 - 100 - i * 22, sY - 5, 18, 9); }
+  label(ctx, 'ขั้วโลกเหนือ (กรีนแลนด์)', X0 + 12, top + 24, { size: 15, wt: 700, align: 'left' });
+  label(ctx, 'ศูนย์สูตร', cx, top + 24, { size: 15, wt: 700 });
+  label(ctx, 'ขั้วโลกใต้ (แอนตาร์กติกา)', X1 - 12, top + 24, { size: 15, wt: 700, align: 'right' });
+  label(ctx, 'กระแสน้ำอุ่นผิวหน้า ไหลไปทางเหนือ', cx + 20, sY + 56, { size: 15, wt: 700, color: '#fff' });
+  label(ctx, melt > 0.6 ? 'น้ำจืดเจือจาง จมตัวได้น้อย' : 'น้ำเย็น เค็ม หนาแน่น → จมตัว', X0 + 150, sY + 150, { size: 15, wt: 700, color: '#fff', align: 'left' });
+  label(ctx, 'น้ำลึกแอตแลนติกเหนือ (NADW)', cx, sY + 292, { size: 15, wt: 700, color: '#fff' });
+  label(ctx, 'ผุดขึ้นช้า ๆ', X1 - 282, sY + 200, { size: 14, wt: 700, color: '#fff', align: 'right' });
+  label(ctx, 'น้ำก้นสมุทรแอนตาร์กติก (AABW)', cx + 110, sY + 432, { size: 14, wt: 700, color: '#fff' });
+  ctx.restore();
+  P.zones.push({ x: X0, y: top, w: X1 - X0, h: bot - top, cursor: 'ew-resize', drag: (px) => { st.melt = clamp((px - X0) / (X1 - X0), 0, 1); } });
+  // cards
+  const cw = (X1 - X0 - 20) / 2, cy0 = 770, ch = 210;
+  const salt = 35 - 1.6 * melt, rho = 1.0278 - 0.0013 * melt;
+  ctx.fillStyle = rgba(th.a, 0.08); rr(ctx, X0, cy0, cw, ch, 14); ctx.fill();
+  label(ctx, 'บริเวณที่น้ำจมตัว (ใกล้กรีนแลนด์)', X0 + 16, cy0 + 26, { size: 17, wt: 700, color: th.a, align: 'left' });
+  para(ctx, `ความเค็ม **${salt.toFixed(1)} ‰**\nความหนาแน่น **${rho.toFixed(4)} g/cm³**`, X0 + 16, cy0 + 46, cw - 32, 18, { bcolor: C.ink });
+  const verdict = melt < 0.3 ? ['จมตัวได้ตามปกติ', '#2b8a3e'] : melt < 0.7 ? ['จมตัวได้น้อยลง', '#e67700'] : ['แทบไม่จมตัว', '#c92a2a'];
+  label(ctx, verdict[0], X0 + 16, cy0 + 140, { size: 22, wt: 600, color: verdict[1], align: 'left', fam: F.display });
+  para(ctx, 'อุณหภูมิต่ำ + ความเค็มสูง = หนาแน่นมาก → จม', X0 + 16, cy0 + 160, cw - 32, 15, { color: C.soft });
+  const x2 = X0 + cw + 20;
+  ctx.fillStyle = rgba(th.a, 0.08); rr(ctx, x2, cy0, cw, ch, 14); ctx.fill();
+  label(ctx, 'สายพานลำเลียงมหาสมุทร', x2 + 16, cy0 + 26, { size: 17, wt: 700, color: th.a, align: 'left' });
+  const lp = Path(Array.from({ length: 60 }, (_, i) => { const a = i / 60 * Math.PI * 2; return [x2 + cw / 2 + Math.cos(a) * 120, cy0 + 100 + Math.sin(a) * 34]; }));
+  const ph3 = phaseAdvance(st, 'p3', t, 0.08 * sf);
+  strokeP(ctx, lp, 'rgba(37,48,58,0.25)', 8);
+  for (let k = 0; k < 20; k++) { const q = lp.at(k / 20 + ph3); circle(ctx, q.x, q.y, 4.5, q.y < cy0 + 100 ? '#f76707' : '#1c7ed6'); }
+  label(ctx, `ความแรงการไหล ${Math.round(sf * 100)}%`, x2 + cw / 2, cy0 + 158, { size: 18, wt: 700, color: verdict[1] });
+  label(ctx, 'การไหลครบ 1 รอบ ≈ 1,000 ปี', x2 + cw / 2, cy0 + 186, { size: 15, wt: 600, color: C.soft });
+  slider(ctx, P, 'melt', X0 + 40, 1076, X1 - X0 - 80, { title: 'ลากเพื่อจำลองน้ำแข็งขั้วโลกละลาย', value: `น้ำจืดเพิ่มขึ้น ${Math.round(melt * 100)}%`, left: 'ปกติ', right: 'น้ำแข็งละลายมาก' });
+}
+
+function dENSO(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  const e = st.e, W = X1 - X0, sY = 520, bot = 830, top = 214;
+  const state = e < -0.35 ? ['ลานีญา (La Niña)', '#1971c2'] : e > 0.35 ? ['เอลนีโญ (El Niño)', '#e8590c'] : ['ภาวะปกติ', '#2b8a3e'];
+  const trade = clamp(1 - e, 0, 2);
+  ctx.save(); rr(ctx, X0, top, W, bot - top, 16); ctx.clip();
+  const sky = ctx.createLinearGradient(0, top, 0, sY); sky.addColorStop(0, '#d3e6f5'); sky.addColorStop(1, '#f2f8fc');
+  ctx.fillStyle = sky; ctx.fillRect(X0, top, W, sY - top);
+  const wl = X0 + 90, wr = X1 - 90;
+  const tilt = 22 * (1 - e) * 0.5;
+  const surf = (X) => sY - tilt * (1 - (X - wl) / (wr - wl)) + tilt * 0.5 + 2.5 * Math.sin(X * 0.05 + t * 2);
+  const thermo = (X) => { const f = (X - wl) / (wr - wl); const dw = 150 + 70 * (1 - e) * 0.5 + (e > 0 ? -40 * e : 0), de = 30 + 110 * clamp(e, -0.2, 1); return sY + lerp(dw, de, f); };
+  const warmEdge = wl + (wr - wl) * clamp(0.45 + 0.42 * e, 0.12, 0.95);
+  ctx.fillStyle = '#123f73'; ctx.fillRect(X0, sY - 30, W, bot - sY + 30);
+  ctx.beginPath(); ctx.moveTo(wl, surf(wl));
+  for (let X = wl; X <= wr; X += 6) ctx.lineTo(X, surf(X));
+  for (let X = wr; X >= wl; X -= 6) ctx.lineTo(X, thermo(X));
+  ctx.closePath();
+  const wg = ctx.createLinearGradient(wl, 0, wr, 0);
+  const wf = (warmEdge - wl) / (wr - wl);
+  wg.addColorStop(0, '#f76707'); wg.addColorStop(clamp(wf - 0.15, 0, 1), '#fd7e14'); wg.addColorStop(clamp(wf + 0.1, 0, 1), '#4dabf7'); wg.addColorStop(1, '#228be6');
+  ctx.fillStyle = wg; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.setLineDash([10, 7]); ctx.beginPath();
+  for (let X = wl; X <= wr; X += 6) X === wl ? ctx.moveTo(X, thermo(X)) : ctx.lineTo(X, thermo(X));
+  ctx.stroke(); ctx.setLineDash([]);
+  label(ctx, 'เทอร์โมไคลน์', wl + 120, thermo(wl + 120) + 18, { size: 14, wt: 700, color: '#fff' });
+  label(ctx, 'แหล่งน้ำอุ่น', lerp(wl, warmEdge, 0.45), sY + 46, { size: 16, wt: 700, color: '#fff' });
+  ctx.fillStyle = '#e9ecef'; ctx.beginPath(); ctx.moveTo(X0, top); ctx.lineTo(X0, top); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0)';
+  // upwelling at Peru
+  const up = clamp(1 - e, 0, 2) / 2;
+  if (up > 0.05) for (let k = 0; k < 8; k++) {
+    const u = mod1(t * 0.25 * up + k / 8), x = wr - 40 - (k % 3) * 18, y = lerp(thermo(wr) + 70, surf(wr) + 10, u);
+    circle(ctx, x, y, 3.5, `rgba(165,216,255,${0.9 * Math.sin(Math.PI * u) * clamp(up * 1.6, 0, 1)})`);
+  }
+  // Walker circulation
+  const xr = lerp(wl + 70, wr - 120, clamp(0.32 + 0.42 * e, 0.05, 0.92)), xs = wr - 40;
+  if (xs - xr > 80) {
+    const loop = Path(rrectPts(xr - 30, top + 70, xs - xr + 30, sY - top - 110, 50, 10).reverse());
+    const ph = phaseAdvance(st, 'pw', t, 0.05 * clamp(0.25 + trade * 0.6, 0.1, 1.4));
+    strokeP(ctx, loop, 'rgba(91,75,196,0.45)', 3, [10, 8], -ph * loop.len);
+    for (let k = 0; k < 7; k++) { const q = loop.at(k / 7 + ph); chevron(ctx, q.x, q.y, q.ang, '#5b4bc4', 11); }
+    label(ctx, 'การหมุนเวียนวอล์กเกอร์', (xr + xs) / 2, top + 70, { size: 14, wt: 700, color: '#5b4bc4', bg: 'rgba(255,255,255,0.85)', pad: 4 });
+  }
+  // clouds + rain over the warm pool
+  for (let c = 0; c < 3; c++) {
+    const x = xr - 30 + c * 34, y = top + 120 + (c % 2) * 14;
+    ctx.fillStyle = '#868e96'; circle(ctx, x, y, 20); ctx.fill(); circle(ctx, x + 18, y + 4, 16); ctx.fill(); circle(ctx, x - 16, y + 6, 14); ctx.fill();
+    for (let k = 0; k < 4; k++) { const ry = y + 22 + mod1(t * 1.1 + k * 0.27 + c * 0.1) * (sY - y - 40); ctx.strokeStyle = 'rgba(28,126,214,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 14 + k * 9, ry); ctx.lineTo(x - 17 + k * 9, ry + 10); ctx.stroke(); }
+  }
+  label(ctx, 'อากาศลอยตัว ฝนตก', xr, top + 54, { size: 14, wt: 700, color: '#1971c2' });
+  // trade winds
+  const tw = clamp(1 - e, -0.4, 2);
+  for (let k = 0; k < 4; k++) {
+    const y = sY - 34 - (k % 2) * 16, xa = wl + 60 + k * 120, len = 44 * Math.abs(tw) + 8, f = mod1(t * 0.3 * Math.max(Math.abs(tw), 0.2) + k * 0.25);
+    const x = xa + (tw >= 0 ? -1 : 1) * f * 40;
+    if (Math.abs(tw) > 0.08) arrow(ctx, x + (tw >= 0 ? len / 2 : -len / 2), y, x - (tw >= 0 ? len / 2 : -len / 2), y, { color: `rgba(37,48,58,${0.75 * Math.sin(Math.PI * f) + 0.15})`, w: 3, head: 11 });
+  }
+  label(ctx, tw > 1.3 ? 'ลมค้าแรงกว่าปกติ' : tw > 0.6 ? 'ลมค้าพัดไปทางตะวันตก' : tw > 0.08 ? 'ลมค้าอ่อนกำลัง' : 'ลมค้าเกือบหยุด / พัดกลับทิศ', cx, sY - 74, { size: 15, wt: 700, color: C.ink, bg: 'rgba(255,255,255,0.8)', pad: 4 });
+  const land = (x0, x1, txt) => { ctx.fillStyle = '#b6a26e'; ctx.fillRect(x0, sY - 34, x1 - x0, bot - sY + 34); ctx.fillStyle = '#7f9a4d'; ctx.fillRect(x0, sY - 40, x1 - x0, 8); label(ctx, txt, (x0 + x1) / 2, sY + 40, { size: 13, wt: 700, color: '#fff' }); };
+  land(X0, wl, 'อินโดนีเซีย'); label(ctx, 'ออสเตรเลีย', (X0 + wl) / 2, sY + 62, { size: 13, wt: 700, color: '#fff' });
+  land(wr, X1, 'เปรู');
+  label(ctx, 'ตะวันตก', X0 + 12, top + 22, { size: 14, wt: 700, color: C.soft, align: 'left' });
+  label(ctx, 'ตะวันออก', X1 - 12, top + 22, { size: 14, wt: 700, color: C.soft, align: 'right' });
+  label(ctx, 'มหาสมุทรแปซิฟิกเขตศูนย์สูตร', cx, bot - 22, { size: 14, wt: 700, color: 'rgba(255,255,255,0.8)' });
+  ctx.restore();
+  P.zones.push({ x: X0, y: top, w: W, h: bot - top, cursor: 'ew-resize', drag: (px) => { st.e = clamp(1 - 2 * (px - X0) / W, -1, 1) * -1; } });
+  // effects card
+  const fx = e < -0.35 ? [
+    'ลมค้าแรงกว่าปกติ น้ำอุ่นสะสมทางฝั่งตะวันตกมากขึ้น',
+    '**เปรู:** น้ำผุดแรง น้ำทะเลเย็นกว่าปกติ อากาศแห้งแล้ง',
+    '**อินโดนีเซีย ออสเตรเลีย และไทย:** ฝนตกมากกว่าปกติ เสี่ยงน้ำท่วม'] : e > 0.35 ? [
+    'ลมค้าอ่อนกำลัง น้ำอุ่นไหลย้อนไปทางตะวันออก',
+    '**เปรู:** น้ำผุดลดลง ปลาลดลง ฝนตกหนัก น้ำท่วม',
+    '**อินโดนีเซีย ออสเตรเลีย และไทย:** ฝนน้อย แห้งแล้ง เสี่ยงไฟป่า'] : [
+    'ลมค้าพัดน้ำอุ่นไปสะสมทางฝั่งตะวันตก',
+    '**เปรู:** น้ำผุดนำธาตุอาหารขึ้นมา เป็นแหล่งประมงสมบูรณ์',
+    '**ฝั่งตะวันตก:** อากาศลอยตัว ฝนตกตามฤดูกาล'];
+  ctx.fillStyle = rgba(state[1], 0.09); rr(ctx, X0, 852, W, 170, 14); ctx.fill();
+  ctx.fillStyle = state[1]; rr(ctx, X0, 852, 7, 170, 3); ctx.fill();
+  label(ctx, state[0], X0 + 22, 880, { size: 26, wt: 600, color: state[1], align: 'left', fam: F.display });
+  let y = 900; for (const f of fx) { circle(ctx, X0 + 30, y + 14, 4, state[1]); y = para(ctx, f, X0 + 44, y, W - 64, 18, { bcolor: C.ink }); }
+  slider(ctx, P, 'e', X0 + 40, 1080, W - 80, { min: -1, max: 1, title: 'ลากเพื่อเปลี่ยนความแรงของลมค้า', left: 'ลมค้าแรง (ลานีญา)', right: 'ลมค้าอ่อน (เอลนีโญ)' });
+}
+
+function dSummary(ctx, t, P) {
+  const { X0, X1, cx } = P;
+  const A = '#5b4bc4', O = '#0f7c72', W = '#1f6fb2';
+  const box = (x, y, w, h, txt, col) => {
+    ctx.fillStyle = rgba(col, 0.1); rr(ctx, x, y, w, h, 14); ctx.fill();
+    ctx.strokeStyle = rgba(col, 0.55); ctx.lineWidth = 2; ctx.stroke();
+    const lines = wrap(ctx, txt, w - 28, 18, F.label, 600, 700);
+    drawLines(ctx, lines, x + w / 2, y + h / 2 - lines.length * 14, 28, 18, { fam: F.label, wt: 600, bw: 700, color: C.ink, bcolor: col, align: 'center' });
+    return { x, y, w, h, cx: x + w / 2, b: y + h, r: x + w };
+  };
+  const link = (x1, y1, x2, y2, col = 'rgba(37,48,58,0.55)', dashed = false) => arrow(ctx, x1, y1, x2, y2, { color: col, w: 3, head: 12, dash: [8, 6], off: -t * 24 });
+  const half = (X1 - X0 - 30) / 2;
+  const a = box(cx - 270, 222, 540, 64, 'ดวงอาทิตย์ให้พลังงานแก่ผิวโลก**ไม่เท่ากัน**', W);
+  const b = box(cx - 270, 322, 540, 64, 'อุณหภูมิต่างกัน → **ความกดอากาศต่างกัน**', W);
+  const c = box(X0, 424, half, 78, '**แรง PGF** ทำให้อากาศเคลื่อนที่ (ลม)', W);
+  const d = box(X1 - half, 424, half, 78, '**แรงคอริออลิส** เบี่ยงทิศทางลม', W);
+  const e = box(cx - 290, 540, 580, 78, 'การหมุนเวียนทั่วไป **3 เซลล์**\nแฮดลีย์ · เฟอร์เรล · ขั้วโลก', A);
+  const f = box(cx - 290, 656, 580, 64, '**ลมประจำ** ลมค้า · ลมตะวันตก · ลมตะวันออกขั้วโลก', A);
+  const g = box(X0, 760, half, 92, 'ลมขับ**กระแสน้ำผิวหน้า**\n→ วงวน (แนวราบ)', O);
+  const h = box(X1 - half, 760, half, 92, '**Ekman** → น้ำผุด / น้ำจม\nลมค้าเปลี่ยน → **เอลนีโญ / ลานีญา**', O);
+  const i = box(X0, 900, half, 92, 'อุณหภูมิ + ความเค็ม → ความหนาแน่น\n→ **แนวดิ่ง (เทอร์โมฮาลีน)**', O);
+  const j = box(X1 - half, 900, half, 92, '**ชั้นน้ำ** ผสม · พิกโนไคลน์ · ลึก', O);
+  link(a.cx, a.b + 2, b.cx, b.y - 4); link(b.cx - 120, b.b + 2, c.cx, c.y - 4); link(c.cx, c.b + 2, e.cx - 160, e.y - 4);
+  link(d.cx, d.b + 2, e.cx + 160, e.y - 4); link(e.cx, e.b + 2, f.cx, f.y - 4); link(f.cx - 150, f.b + 2, g.cx, g.y - 4); link(f.cx + 150, f.b + 2, h.cx, h.y - 4);
+  arrow(ctx, g.cx, g.b + 4, i.cx, i.y - 4, { color: rgba(O, 0.8), w: 3, head: 12, dash: [5, 6], off: -t * 24 });
+  label(ctx, 'เชื่อมกันเป็นสายพานลำเลียง', g.cx + 14, (g.b + i.y) / 2, { size: 13, wt: 600, color: O, align: 'left' });
+  ctx.strokeStyle = rgba(O, 0.5); ctx.setLineDash([4, 5]); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(i.r + 4, i.y + 46); ctx.lineTo(j.x - 4, j.y + 46); ctx.stroke(); ctx.setLineDash([]);
+  label(ctx, '■ บรรยากาศ', X0, 1030, { size: 15, wt: 700, color: A, align: 'left' });
+  label(ctx, '■ แรงที่ทำให้เกิดลม', X0 + 130, 1030, { size: 15, wt: 700, color: W, align: 'left' });
+  label(ctx, '■ มหาสมุทร', X0 + 310, 1030, { size: 15, wt: 700, color: O, align: 'left' });
+}
+
+// ============================================================ covers, TOC, quiz
+function coverBg(ctx, hingeLeft) {
+  const g = ctx.createLinearGradient(0, 0, 0, CH); g.addColorStop(0, '#0a2342'); g.addColorStop(0.55, '#113a63'); g.addColorStop(1, '#0b2a4a');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+  for (let i = 0; i < 4000; i++) { ctx.fillStyle = `rgba(255,255,255,${rnd() * 0.035})`; ctx.fillRect(rnd() * CW, rnd() * CH, 1.5, 1.5); }
+  const hx = hingeLeft ? 0 : CW - 34, hg = ctx.createLinearGradient(hx, 0, hx + 34, 0);
+  hg.addColorStop(hingeLeft ? 0 : 1, 'rgba(0,0,0,0.45)'); hg.addColorStop(hingeLeft ? 1 : 0, 'rgba(0,0,0,0)');
+  ctx.fillStyle = hg; ctx.fillRect(hx, 0, 34, CH);
+  ctx.strokeStyle = 'rgba(217,180,90,0.55)'; ctx.lineWidth = 2;
+  const ox = hingeLeft ? 54 : 30; ctx.strokeRect(ox, 30, CW - 84, CH - 60);
+  ctx.lineWidth = 1; ctx.strokeRect(ox + 8, 38, CW - 100, CH - 76);
+}
+let COVER_BG = null, BACK_BG = null;
+function drawCover(ctx, t) {
+  if (!COVER_BG) { COVER_BG = makeCanvas(); coverBg(COVER_BG.getContext('2d'), true); }
+  ctx.drawImage(COVER_BG, 0, 0);
+  label(ctx, 'วิทยาศาสตร์โลกและอวกาศ · ชั้นมัธยมศึกษาปีที่ 6', 465, 112, { size: 19, wt: 600, color: '#d9e9f7', bg: 'rgba(255,255,255,0.08)', border: 'rgba(217,180,90,0.5)', pad: 12, r: 18 });
+  const gx = 465, gy = 470, R = 196;
+  glow(ctx, gx, gy, R + 120, 'rgba(120,190,255,0.25)');
+  shell(ctx, gx, gy, R + 2, R + 80, 'rgba(140,200,255,0.10)');
+  globe(ctx, gx, gy, R);
+  drawCells(ctx, gx, gy, R + 10, R + 76, THREE_CELLS, t);
+  ctx.save(); ctx.beginPath(); ctx.arc(gx, gy, R, 0, Math.PI * 2); ctx.clip();
+  for (const [lat, dir] of [[15, -1], [-15, -1], [45, 1], [-45, 1], [72, -1], [-72, -1]]) {
+    const y = gy - R * Math.sin(lat * D2R), h = R * Math.cos(lat * D2R);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 3; ctx.setLineDash([22, 18]); ctx.lineDashOffset = t * 40 * dir * -1;
+    ctx.beginPath(); ctx.moveTo(gx - h, y); ctx.lineTo(gx + h, y); ctx.stroke();
+  }
+  ctx.restore(); ctx.setLineDash([]);
+  ctx.font = `600 64px ${F.display}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#ffffff'; ctx.fillText('การหมุนเวียนของลม', 465, 830);
+  ctx.fillStyle = '#9bd4ff'; ctx.fillText('และน้ำในมหาสมุทร', 465, 906);
+  ctx.textAlign = 'left';
+  label(ctx, 'GLOBAL ATMOSPHERIC & OCEAN CIRCULATION', 465, 952, { size: 17, wt: 600, color: '#c9dbea' });
+  for (let k = 0; k < 3; k++) {
+    ctx.fillStyle = ['rgba(31,111,178,0.55)', 'rgba(22,88,122,0.75)', 'rgba(14,64,96,0.95)'][k];
+    ctx.beginPath(); ctx.moveTo(0, CH);
+    for (let x = 0; x <= CW; x += 10) ctx.lineTo(x, 1010 + k * 34 + 10 * Math.sin(x * 0.012 + t * (0.8 + k * 0.3) + k));
+    ctx.lineTo(CW, CH); ctx.closePath(); ctx.fill();
+  }
+  label(ctx, 'แตะขอบกระดาษหรือลากมุมเพื่อเปิดหนังสือ →', 465, 1110, { size: 18, wt: 600, color: 'rgba(255,255,255,0.85)' });
+}
+function drawBack(ctx) {
+  if (!BACK_BG) { BACK_BG = makeCanvas(); coverBg(BACK_BG.getContext('2d'), false); }
+  ctx.drawImage(BACK_BG, 0, 0);
+  globe(ctx, 440, 330, 96);
+  ctx.font = `600 40px ${F.display}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('หนังสือพลิก 3 มิติ', 440, 520);
+  ctx.font = `500 26px ${F.display}`; ctx.fillStyle = '#9bd4ff'; ctx.fillText('การหมุนเวียนของลมและน้ำในมหาสมุทร', 440, 566); ctx.textAlign = 'left';
+  const topics = ['แรง PGF', 'แรงคอริออลิส', 'แบบจำลองเซลล์เดียว', '3 เซลล์', 'น้ำผุด-น้ำจม', 'ชั้นน้ำทะเล', 'แนวราบ', 'แนวดิ่ง', 'เอลนีโญ-ลานีญา'];
+  let x = 110, y = 640;
+  ctx.font = `600 18px ${F.label}`;
+  for (const tp of topics) { const w = ctx.measureText(tp).width + 28; if (x + w > 800) { x = 110; y += 50; } label(ctx, tp, x + 14, y, { size: 18, color: '#d9e9f7', align: 'left', bg: 'rgba(255,255,255,0.08)', border: 'rgba(217,180,90,0.45)', pad: 12, r: 16 }); x += w + 14; }
+  para(ctx, 'สื่อการเรียนรู้ประกอบรายวิชาวิทยาศาสตร์โลกและอวกาศ ชั้นมัธยมศึกษาปีที่ 6', 440, 880, 620, 20, { color: '#c9dbea', align: 'center', fam: F.label });
+  label(ctx, 'สร้างด้วย three.js ร่วมกับ Claude', 440, 1060, { size: 17, wt: 600, color: 'rgba(217,180,90,0.9)' });
+}
+const TOC = [
+  [TH.wind, 'บทที่ 1 แรงที่ทำให้เกิดลม', [['แรงเกรเดียนความกดอากาศ (PGF)', 3], ['แรงคอริออลิส', 5]]],
+  [TH.atmo, 'บทที่ 2 การหมุนเวียนของบรรยากาศ', [['แบบจำลองเซลล์เดียว', 7], ['การหมุนเวียนทั่วไป 3 เซลล์', 9], ['แถบความกดอากาศและฤดูกาล', 11]]],
+  [TH.ocean, 'บทที่ 3 โครงสร้างและการเคลื่อนที่ของน้ำทะเล', [['น้ำผุดและน้ำจม', 13], ['ชั้นน้ำทะเล', 15]]],
+  [TH.flow, 'บทที่ 4 การหมุนเวียนของน้ำในมหาสมุทร', [['การหมุนเวียนในแนวราบ', 17], ['การหมุนเวียนในแนวดิ่ง', 19], ['เอลนีโญและลานีญา', 21]]],
+  [TH.end, 'ทบทวนความรู้', [['แผนผังสรุป', 23], ['แบบทดสอบท้ายบท', 24]]],
+];
+function drawTOC(ctx, P) {
+  let y = 232;
+  for (const [th, ch, items] of TOC) {
+    ctx.fillStyle = th.a; rr(ctx, P.X0, y - 9, 16, 16, 4); ctx.fill();
+    label(ctx, ch, P.X0 + 28, y, { size: 21, wt: 600, color: th.a, align: 'left', fam: F.display });
+    y += 40;
+    for (const [name, p] of items) {
+      label(ctx, name, P.X0 + 28, y, { size: 21, wt: 400, color: C.ink, align: 'left', fam: F.body });
+      ctx.font = `400 21px ${F.body}`; const nw = ctx.measureText(name).width;
+      ctx.fillStyle = 'rgba(93,104,114,0.45)'; for (let dx = P.X0 + 40 + nw; dx < P.X1 - 40; dx += 9) ctx.fillRect(dx, y + 6, 2, 2);
+      label(ctx, String(p), P.X1, y, { size: 21, wt: 600, color: th.a, align: 'right' });
+      P.zones.push({ x: P.X0, y: y - 20, w: P.X1 - P.X0, h: 40, cursor: 'pointer', click: () => goToPage(p) });
+      y += 42;
+    }
+    y += 12;
+  }
+  label(ctx, 'แตะชื่อหัวข้อเพื่อไปยังหน้านั้น', P.cx, 1060, { size: 16, wt: 500, color: C.soft });
+}
+const QUIZ = [
+  ['ถ้าเส้นไอโซบาร์อยู่ชิดกันมาก ลมบริเวณนั้นจะเป็นอย่างไร', 'ลมแรง เพราะความต่างของความกดอากาศต่อระยะทางมาก แรง PGF จึงมาก'],
+  ['ลมที่พัดจากขั้วโลกใต้ไปทางศูนย์สูตร จะเบี่ยงเบนไปทางใด', 'เบี่ยงไปทางซ้ายของทิศการเคลื่อนที่ จึงเป็นลมตะวันออกขั้วโลก'],
+  ['ประเทศไทยอยู่ในเซลล์ใด และได้รับอิทธิพลจากลมประจำใด', 'เซลล์แฮดลีย์ ได้รับอิทธิพลจากลมค้าตะวันออกเฉียงเหนือ'],
+  ['ทำไมชายฝั่งเปรูจึงเป็นแหล่งประมงที่สำคัญ', 'มีน้ำผุดนำน้ำเย็นที่อุดมด้วยธาตุอาหารขึ้นมา แพลงก์ตอนและปลาจึงชุกชุม'],
+  ['ชั้นน้ำใดกั้นไม่ให้น้ำผิวหน้าผสมกับน้ำลึกได้ง่าย', 'ชั้นพิกโนไคลน์ ซึ่งความหนาแน่นเพิ่มขึ้นอย่างรวดเร็วตามความลึก'],
+  ['ปัจจัยใดทำให้เกิดการหมุนเวียนของน้ำในแนวดิ่ง', 'ความหนาแน่นที่ต่างกัน ซึ่งขึ้นกับอุณหภูมิและความเค็มของน้ำทะเล'],
+  ['ในปีที่เกิดเอลนีโญ ประเทศไทยมักมีสภาพอากาศอย่างไร', 'ฝนน้อยกว่าปกติ ร้อนและแห้งแล้ง เพราะแหล่งน้ำอุ่นและเขตฝนย้ายไปทางตะวันออก'],
+];
+function drawQuiz(ctx, P) {
+  let y = 222; const w = P.X1 - P.X0;
+  QUIZ.forEach(([q, a], i) => {
+    circle(ctx, P.X0 + 16, y + 16, 16, P.th.a);
+    label(ctx, String(i + 1), P.X0 + 16, y + 16, { size: 17, wt: 700, color: '#fff' });
+    y = para(ctx, q, P.X0 + 44, y, w - 44, 21, { lh: 31, wt: 600 });
+    const lines = wrap(ctx, a, w - 80, 18), h = lines.length * 27 + 16, open = P.st.open[i];
+    if (open) { ctx.fillStyle = 'rgba(43,138,62,0.1)'; rr(ctx, P.X0 + 44, y + 2, w - 44, h, 10); ctx.fill(); drawLines(ctx, lines, P.X0 + 60, y + 8, 27, 18, { color: '#2b6a35' }); }
+    else { ctx.setLineDash([6, 5]); ctx.strokeStyle = 'rgba(93,104,114,0.5)'; ctx.lineWidth = 1.5; rr(ctx, P.X0 + 44, y + 2, w - 44, h, 10); ctx.stroke(); ctx.setLineDash([]); label(ctx, 'แตะเพื่อดูเฉลย', P.X0 + 44 + (w - 44) / 2, y + 2 + h / 2, { size: 16, wt: 600, color: C.soft }); }
+    P.zones.push({ x: P.X0 + 44, y: y + 2, w: w - 44, h, cursor: 'pointer', click: () => { P.st.open[i] = !P.st.open[i]; P.dirty = true; } });
+    y += h + 16;
+  });
+}
+
+// ============================================================ page content
+const PAGES = [
+  { kind: 'cover', anim: true },
+  { th: TH.intro, title: 'ก่อนเริ่มเรียน', sub: 'How to use this book', blocks: [
+    { h: 'จุดประสงค์การเรียนรู้' },
+    { li: ['อธิบายแรงที่ทำให้เกิดลม ได้แก่ **แรงเกรเดียนความกดอากาศ**และ**แรงคอริออลิส**', 'อธิบายการหมุนเวียนของอากาศตาม**แบบจำลองเซลล์เดียว**และ**สามเซลล์**', 'อธิบาย**น้ำผุด น้ำจม** และ**การแบ่งชั้นน้ำทะเล**', 'อธิบายการหมุนเวียนของน้ำในมหาสมุทร**แนวราบ แนวดิ่ง** และปรากฏการณ์**เอลนีโญ–ลานีญา**'] },
+    { h: 'วิธีใช้หนังสือ' },
+    { li: ['**ลากหรือคลิกบนภาพประกอบ** เพื่อเปลี่ยนสถานการณ์ แล้วสังเกตว่าลม น้ำ และแรงต่าง ๆ เปลี่ยนไปอย่างไร', '**คลิกขอบกระดาษ**หรือ**ลากมุมกระดาษ**เพื่อพลิกหน้า', '**ลากพื้นที่ว่าง**รอบหนังสือเพื่อหมุนมุมมอง ใช้**ลูกกลิ้งเมาส์**เพื่อซูม', 'ใช้ปุ่มลูกศร ← → หรือปุ่มด้านล่างจอเพื่อพลิกหน้า'] },
+    { box: 'ภาพประกอบหน้าขวาทุกหน้า**ขยับได้** ลองตั้งคำถามว่า "ถ้า...จะเกิดอะไรขึ้น" แล้วลากเพื่อหาคำตอบ', tone: 'note' },
+  ] },
+  { kind: 'toc', th: TH.intro, title: 'สารบัญ', sub: 'Contents' },
+  { th: TH.wind, title: 'แรงเกรเดียนความกดอากาศ', sub: 'Pressure Gradient Force (PGF)', blocks: [
+    { p: 'ลมเกิดจากอากาศเคลื่อนที่จากบริเวณที่มี**ความกดอากาศสูง**ไปยังบริเวณที่มี**ความกดอากาศต่ำ** แรงที่ผลักให้อากาศเริ่มเคลื่อนที่เรียกว่า **แรงเกรเดียนความกดอากาศ (PGF)**' },
+    { h: 'สาเหตุ' },
+    { p: 'ผิวโลกได้รับพลังงานจากดวงอาทิตย์ไม่เท่ากัน บริเวณที่ร้อนกว่าอากาศขยายตัวและลอยตัวขึ้น ความกดอากาศจึงต่ำ ส่วนบริเวณที่เย็นกว่าอากาศจมตัว ความกดอากาศจึงสูง' },
+    { h: 'ลักษณะของ PGF' },
+    { li: ['มีทิศทาง**จากความกดอากาศสูงไปความกดอากาศต่ำ** และ**ตั้งฉาก**กับเส้นไอโซบาร์', 'ขนาดขึ้นกับความต่างของความกดอากาศต่อระยะทาง **ไอโซบาร์ยิ่งชิด แรงยิ่งมาก ลมยิ่งแรง**', 'เป็นแรงที่**ทำให้เกิดลม** ส่วนแรงคอริออลิสและแรงเสียดทานมีผลหลังจากอากาศเคลื่อนที่แล้ว'] },
+    { f: 'PGF = (1/ρ) × ΔP / Δd', cap: 'ΔP = ผลต่างความกดอากาศ  ·  Δd = ระยะทาง  ·  ρ = ความหนาแน่นของอากาศ' },
+    { box: '**ไอโซบาร์ (Isobar)** คือเส้นที่ลากเชื่อมจุดที่มีความกดอากาศเท่ากันบนแผนที่อากาศ หน่วยที่ใช้คือเฮกโตพาสคัล (hPa)' },
+  ] },
+  { kind: 'diagram', th: TH.wind, title: 'ลองเลื่อนความกดอากาศ', sub: 'ภาพโต้ตอบ: PGF กับความแรงลม', draw: dPGF, init: () => ({ dist: 380 }) },
+  { th: TH.wind, title: 'แรงคอริออลิส', sub: 'Coriolis Force', blocks: [
+    { p: 'โลก**หมุนรอบตัวเองจากทิศตะวันตกไปทิศตะวันออก** วัตถุที่เคลื่อนที่อย่างอิสระบนผิวโลก เช่น อากาศและน้ำ จึงมีเส้นทางเบี่ยงเบนไปจากแนวเดิมเมื่อมองจากผิวโลก เรียกว่า**แรงคอริออลิส** ซึ่งเป็น**แรงเสมือน**' },
+    { h: 'ทิศทางการเบี่ยงเบน' },
+    { li: ['**ซีกโลกเหนือ** เบี่ยงไป**ทางขวา**ของทิศการเคลื่อนที่', '**ซีกโลกใต้** เบี่ยงไป**ทางซ้าย**ของทิศการเคลื่อนที่', 'ที่**เส้นศูนย์สูตร**ไม่มีการเบี่ยงเบน'] },
+    { h: 'ขนาดของแรง' },
+    { li: ['**มากที่สุดที่ขั้วโลก** และ**เป็นศูนย์ที่ศูนย์สูตร** (แปรผันตาม sin ของละติจูด)', 'แปรผันตาม**อัตราเร็ว**ของวัตถุ ยิ่งเร็วยิ่งเบี่ยงมาก', 'เปลี่ยนเฉพาะ**ทิศทาง** ไม่เปลี่ยนอัตราเร็ว'] },
+    { box: '**ลมจีโอสโทรฟิก** ในระดับสูงที่ไม่มีแรงเสียดทาน PGF กับแรงคอริออลิสสมดุลกัน ลมจึงพัด**ขนานกับไอโซบาร์**' },
+  ] },
+  { kind: 'diagram', th: TH.wind, title: 'ลองขว้างบนโลกที่หมุน', sub: 'ภาพโต้ตอบ: ทิศและขนาดของแรงคอริออลิส', draw: dCoriolis, init: () => ({ dn: { ang: 0, t0: 0 }, ds: { ang: 0, t0: 0 }, lat: 45 }) },
+  { th: TH.atmo, title: 'แบบจำลองเซลล์เดียว', sub: 'Single Cell Model', blocks: [
+    { p: 'ในปี ค.ศ. 1735 **จอร์จ แฮดลีย์ (George Hadley)** เสนอแบบจำลองการหมุนเวียนของอากาศบนโลกอย่างง่าย โดยมีสมมติฐานว่า' },
+    { li: ['โลก**ไม่หมุนรอบตัวเอง** จึงไม่มีแรงคอริออลิส', 'ผิวโลก**เป็นเนื้อเดียวกันทั้งหมด** ไม่มีทวีปและมหาสมุทร', 'ดวงอาทิตย์**ตั้งฉากกับเส้นศูนย์สูตร**ตลอดเวลา'] },
+    { h: 'การหมุนเวียน' },
+    { li: ['ศูนย์สูตรได้รับความร้อนมาก อากาศร้อน**ลอยตัวขึ้น** เกิด**ความกดอากาศต่ำ**', 'อากาศชั้นบนเคลื่อนไป**ทางขั้วโลก** แล้วเย็นตัวลง', 'ที่ขั้วโลกอากาศเย็น**จมตัวลง** เกิด**ความกดอากาศสูง**', 'อากาศผิวพื้นไหล**กลับไปที่ศูนย์สูตร** ครบเป็นวงจร'] },
+    { p: 'ผลคือแต่ละซีกโลกมีการหมุนเวียนเพียง **1 เซลล์**' },
+    { box: '**ข้อจำกัด** โลกจริงหมุนรอบตัวเอง แรงคอริออลิสทำให้อากาศที่เคลื่อนไปทางขั้วโลกเบี่ยงเบนและไปไม่ถึงขั้วโลก การหมุนเวียนจึงแตกเป็น **3 เซลล์**ในแต่ละซีกโลก', tone: 'warn' },
+  ] },
+  { kind: 'diagram', th: TH.atmo, title: 'จากเซลล์เดียวสู่ 3 เซลล์', sub: 'ภาพโต้ตอบ: ผลของการหมุนของโลก', draw: dSingle, init: () => ({ rot: 0 }) },
+  { th: TH.atmo, title: 'การหมุนเวียนทั่วไปของบรรยากาศ', sub: 'General Circulation: Three-Cell Model', blocks: [
+    { p: 'เมื่อรวมผลของการหมุนของโลก การหมุนเวียนของอากาศในแต่ละซีกโลกแบ่งเป็น 3 เซลล์' },
+    { h: 'เซลล์แฮดลีย์ (Hadley cell) 0°–30°' },
+    { p: 'อากาศร้อนชื้นลอยตัวที่ศูนย์สูตร เกิดเมฆและฝนมาก อากาศชั้นบนเคลื่อนไปทางขั้วโลก เย็นตัวและจมลงที่ละติจูด 30° ทำให้แห้งแล้ง ลมผิวพื้นที่ไหลกลับสู่ศูนย์สูตรถูกเบี่ยงเป็น**ลมค้า (Trade winds)**' },
+    { h: 'เซลล์เฟอร์เรล (Ferrel cell) 30°–60°' },
+    { p: 'หมุนตามเซลล์ข้างเคียง อากาศผิวพื้นเคลื่อนจาก 30° ไปทาง 60° ถูกเบี่ยงเป็น**ลมตะวันตก (Westerlies)** แล้วลอยตัวขึ้นที่ละติจูด 60°' },
+    { h: 'เซลล์ขั้วโลก (Polar cell) 60°–90°' },
+    { p: 'อากาศเย็นจัดจมตัวที่ขั้วโลก ไหลออกไปทางละติจูด 60° ถูกเบี่ยงเป็น**ลมตะวันออกขั้วโลก (Polar easterlies)** เมื่อพบลมตะวันตกที่ 60° อากาศจะลอยตัวขึ้นเป็น**แนวปะทะขั้วโลก**' },
+  ] },
+  { kind: 'diagram', th: TH.atmo, title: 'สำรวจลมรอบโลก', sub: 'ภาพโต้ตอบ: เซลล์ ลมประจำ และแถบความกดอากาศ', draw: dThree, init: () => ({ lat: 15 }) },
+  { th: TH.atmo, title: 'แถบความกดอากาศและลมประจำ', sub: 'Pressure Belts & Prevailing Winds', blocks: [
+    { table: { cols: [0.24, 0.2, 0.56], head: ['เซลล์', 'ละติจูด', 'ลมผิวพื้น'], rows: [
+      ['แฮดลีย์', '0°–30°', 'ลมค้าตะวันออกเฉียงเหนือ (ซีกโลกเหนือ) และตะวันออกเฉียงใต้ (ซีกโลกใต้)'],
+      ['เฟอร์เรล', '30°–60°', 'ลมตะวันตก'],
+      ['ขั้วโลก', '60°–90°', 'ลมตะวันออกขั้วโลก']] } },
+    { h: 'แถบความกดอากาศ' },
+    { li: ['**0°** ความกดอากาศต่ำศูนย์สูตร หรือ ITCZ (ลมสงบ ฝนชุก)', '**30°** ความกดอากาศสูงกึ่งโซนร้อน (แห้งแล้ง ทะเลทราย)', '**60°** ความกดอากาศต่ำกึ่งขั้วโลก (แนวปะทะ พายุ)', '**90°** ความกดอากาศสูงขั้วโลก (เย็นและแห้ง)'] },
+    { box: '**กระแสลมกรด (Jet stream)** ลมแรงระดับสูงใกล้โทรโพพอส อยู่บริเวณรอยต่อระหว่างเซลล์ ได้แก่ ลมกรดกึ่งโซนร้อน (~30°) และลมกรดขั้วโลก (~60°)' },
+    { box: '**ประเทศไทย** อยู่ที่ละติจูดประมาณ 5°–20°N จึงอยู่ใน**เซลล์แฮดลีย์** แถบความกดอากาศเลื่อนขึ้นลงตามฤดูกาล เมื่อ ITCZ พาดผ่านไทยจะเป็นฤดูฝน', tone: 'note' },
+  ] },
+  { kind: 'diagram', th: TH.atmo, title: 'เซลล์เลื่อนตามฤดูกาล', sub: 'ภาพโต้ตอบ: ภาพตัดขวางและตำแหน่ง ITCZ', draw: dCross, init: () => ({ sun: 0 }) },
+  { th: TH.ocean, title: 'น้ำผุดและน้ำจม', sub: 'Upwelling & Downwelling', blocks: [
+    { p: 'เมื่อลมพัดผ่านผิวน้ำ น้ำผิวหน้าจะเคลื่อนที่ แต่แรงคอริออลิสทำให้มวลน้ำโดยรวมเคลื่อนที่**ตั้งฉากกับทิศทางลม** (ซีกโลกเหนือเบนขวา 90° ซีกโลกใต้เบนซ้าย 90°) เรียกว่า**การเคลื่อนที่แบบเอกมัน (Ekman transport)**' },
+    { h: 'น้ำผุด (Upwelling)' },
+    { p: 'เกิดเมื่อน้ำผิวหน้าถูกพัด**ออกจากชายฝั่ง** น้ำเย็นจากด้านล่างเคลื่อนขึ้นมาแทนที่ น้ำนี้**อุดมด้วยธาตุอาหาร** แพลงก์ตอนเจริญเติบโตดี จึงเป็น**แหล่งประมงสำคัญ** เช่น ชายฝั่งเปรูและแคลิฟอร์เนีย' },
+    { h: 'น้ำจม (Downwelling)' },
+    { p: 'เกิดเมื่อน้ำผิวหน้าถูกพัด**เข้าหาชายฝั่ง** น้ำสะสมและจมตัวลง นำ**ออกซิเจน**จากผิวน้ำลงสู่ชั้นล่าง แต่บริเวณนั้นมีธาตุอาหารที่ผิวน้ำน้อย' },
+    { box: 'น้ำผุดและน้ำจมเป็นการเคลื่อนที่ของน้ำ**ในแนวดิ่งที่เกิดจากลม** ต่างจากการหมุนเวียนแบบเทอร์โมฮาลีนที่เกิดจากความหนาแน่น', tone: 'note' },
+  ] },
+  { kind: 'diagram', th: TH.ocean, title: 'ลองเปลี่ยนทิศลม', sub: 'ภาพโต้ตอบ: ลมกับน้ำผุด–น้ำจม', draw: dUpwell, init: () => ({ w: 0.8 }) },
+  { th: TH.ocean, title: 'ชั้นน้ำทะเล', sub: 'Ocean Layers', blocks: [
+    { p: 'แบ่งน้ำทะเลตาม**อุณหภูมิและความหนาแน่น**ที่เปลี่ยนไปตามความลึกได้ 3 ชั้น' },
+    { h: '1. ชั้นน้ำผสม (Mixed layer)' },
+    { p: 'ผิวน้ำถึงลึกประมาณ 200 m ได้รับแสงและความร้อนจากดวงอาทิตย์ ลมและคลื่นทำให้น้ำ**ผสมกันทั่วถึง** อุณหภูมิจึง**เกือบคงที่**ตามความลึก' },
+    { h: '2. ชั้นพิกโนไคลน์ (Pycnocline)' },
+    { p: 'ลึกประมาณ 200–1,000 m **ความหนาแน่นเพิ่มขึ้นอย่างรวดเร็ว** เพราะอุณหภูมิลดลงเร็ว (เทอร์โมไคลน์) และความเค็มเปลี่ยน (ฮาโลไคลน์) ชั้นนี้**กั้น**ไม่ให้น้ำผิวหน้ากับน้ำลึกผสมกันได้ง่าย' },
+    { h: '3. ชั้นน้ำลึก (Deep layer)' },
+    { p: 'ลึกกว่า 1,000 m ไม่มีแสง น้ำ**เย็นจัด (ประมาณ 0–4 °C)** หนาแน่นสูงและค่อนข้างคงที่ มีปริมาตรราว 80% ของมหาสมุทร' },
+    { box: 'ในเขต**ขั้วโลก** น้ำผิวหน้าเย็นพอ ๆ กับน้ำลึก จึง**แทบไม่มีชั้นพิกโนไคลน์** น้ำผิวหน้าจมตัวลงไปได้ง่าย', tone: 'note' },
+  ] },
+  { kind: 'diagram', th: TH.ocean, title: 'ดำดิ่งสู่ก้นทะเล', sub: 'ภาพโต้ตอบ: อุณหภูมิและความหนาแน่นตามความลึก', draw: dLayers, init: () => ({ lat: 10, depth: null, dt: -99 }) },
+  { th: TH.flow, title: 'การหมุนเวียนของน้ำในแนวราบ', sub: 'Surface Currents & Gyres', blocks: [
+    { p: 'กระแสน้ำผิวหน้า (ลึกไม่เกินประมาณ 400 m) เกิดจาก**ลมประจำ**ที่พัดผ่านผิวน้ำ ร่วมกับ**แรงคอริออลิส**และ**รูปร่างของทวีป**' },
+    { h: 'วงวนกระแสน้ำ (Gyre)' },
+    { li: ['ลมค้าพัดน้ำแถบศูนย์สูตรไปทาง**ตะวันตก** ลมตะวันตกพัดน้ำในละติจูดกลางไปทาง**ตะวันออก**', 'เมื่อชนทวีป น้ำจึงวนเป็นวง ซีกโลกเหนือ**ตามเข็มนาฬิกา** ซีกโลกใต้**ทวนเข็มนาฬิกา**', 'มีวงวนหลัก 5 วง ในแปซิฟิกเหนือ แปซิฟิกใต้ แอตแลนติกเหนือ แอตแลนติกใต้ และมหาสมุทรอินเดีย'] },
+    { h: 'กระแสน้ำอุ่นและกระแสน้ำเย็น' },
+    { li: ['**กระแสน้ำอุ่น** ไหลจากศูนย์สูตรไปทางขั้วโลก ตามชายฝั่ง**ตะวันออก**ของทวีป เช่น กัลฟ์สตรีม คุโรชิโอะ', '**กระแสน้ำเย็น** ไหลจากขั้วโลกมาทางศูนย์สูตร ตามชายฝั่ง**ตะวันตก**ของทวีป เช่น แคลิฟอร์เนีย ฮัมโบลต์'] },
+    { box: 'กระแสน้ำผิวหน้าช่วย**ถ่ายเทความร้อน**จากเขตร้อนไปเขตหนาว เช่น กัลฟ์สตรีมทำให้ยุโรปตะวันตกอบอุ่นกว่าพื้นที่อื่นที่ละติจูดเดียวกัน' },
+  ] },
+  { kind: 'diagram', th: TH.flow, title: 'ปล่อยขวดตามกระแสน้ำ', sub: 'ภาพโต้ตอบ: วงวนกระแสน้ำอุ่นและเย็น', draw: dGyres, init: () => ({ drifters: [], probe: null }) },
+  { th: TH.flow, title: 'การหมุนเวียนของน้ำในแนวดิ่ง', sub: 'Thermohaline Circulation', blocks: [
+    { p: 'เกิดจาก**ความแตกต่างของความหนาแน่น**ของน้ำทะเล ซึ่งขึ้นกับ**อุณหภูมิ (thermo)** และ**ความเค็ม (haline)** จึงเรียกว่า**การหมุนเวียนแบบเทอร์โมฮาลีน**' },
+    { h: 'กระบวนการ' },
+    { li: ['ในละติจูดสูง เช่น ทะเลรอบเกาะกรีนแลนด์และทะเลเวดเดลล์ น้ำทะเล**เย็นจัด**', 'เมื่อน้ำทะเลแข็งตัว เกลือถูกขับออก น้ำรอบ ๆ จึง**เค็มขึ้น**', 'น้ำที่**เย็นและเค็ม**มี**ความหนาแน่นสูง** จึง**จมตัว**สู่ก้นมหาสมุทรแล้วไหลไปตามพื้นมหาสมุทร', 'น้ำลึกค่อย ๆ **ผุดขึ้น**ในมหาสมุทรอินเดียและแปซิฟิก แล้วไหลกลับเป็นกระแสน้ำผิวหน้า'] },
+    { box: '**สายพานลำเลียงมหาสมุทร (Global conveyor belt)** เชื่อมการหมุนเวียนแนวราบและแนวดิ่งทั่วโลก ครบ 1 รอบใช้เวลาประมาณ **1,000 ปี**' },
+    { box: 'ถ้าน้ำแข็งขั้วโลกละลายมาก น้ำจืดทำให้น้ำทะเลเค็มน้อยลงและจมตัวได้ยาก การหมุนเวียนนี้อาจอ่อนกำลังลง', tone: 'warn' },
+  ] },
+  { kind: 'diagram', th: TH.flow, title: 'ถ้าน้ำแข็งขั้วโลกละลาย', sub: 'ภาพโต้ตอบ: การหมุนเวียนแบบเทอร์โมฮาลีน', draw: dThermo, init: () => ({ melt: 0 }) },
+  { th: TH.flow, title: 'เอลนีโญและลานีญา', sub: 'El Niño – Southern Oscillation (ENSO)', blocks: [
+    { p: 'ปรากฏการณ์ที่เกิดจากการเปลี่ยนแปลงของ**ลมค้า**และ**อุณหภูมิผิวน้ำทะเล**ในมหาสมุทรแปซิฟิกเขตศูนย์สูตร เกิดขึ้นทุก ๆ ประมาณ 2–7 ปี' },
+    { h: 'ภาวะปกติ' },
+    { p: 'ลมค้าพัดน้ำอุ่นผิวหน้าไปสะสมทางฝั่ง**ตะวันตก** (อินโดนีเซีย ออสเตรเลีย) อากาศลอยตัวและฝนตก ส่วนฝั่งเปรูเกิด**น้ำผุด**' },
+    { h: 'เอลนีโญ (El Niño)' },
+    { p: 'ลมค้า**อ่อนกำลัง** น้ำอุ่นไหลย้อนไปทางตะวันออก น้ำผุดนอกชายฝั่งเปรูลดลง เปรูฝนตกหนัก ปลาลดลง ส่วนฝั่งตะวันตกรวมถึง**ไทยฝนน้อย แห้งแล้ง**' },
+    { h: 'ลานีญา (La Niña)' },
+    { p: 'ลมค้า**แรงกว่าปกติ** น้ำอุ่นสะสมทางตะวันตกมากขึ้น น้ำผุดเปรูแรงขึ้น ฝั่งตะวันตกและ**ไทยฝนตกมาก เสี่ยงน้ำท่วม**' },
+    { box: '**การหมุนเวียนวอล์กเกอร์ (Walker circulation)** คือการหมุนเวียนของอากาศในแนวตะวันออก–ตะวันตกเหนือแปซิฟิกเขตศูนย์สูตร เมื่อแหล่งน้ำอุ่นย้ายตำแหน่ง บริเวณที่อากาศลอยตัวและฝนตกก็ย้ายตาม' },
+  ] },
+  { kind: 'diagram', th: TH.flow, title: 'ลองปรับลมค้า', sub: 'ภาพโต้ตอบ: ลานีญา · ปกติ · เอลนีโญ', draw: dENSO, init: () => ({ e: 0 }) },
+  { kind: 'diagram', th: TH.end, title: 'แผนผังสรุป', sub: 'Concept map', draw: dSummary, init: () => ({}) },
+  { kind: 'quiz', th: TH.end, title: 'แบบทดสอบท้ายบท', sub: 'แตะที่กล่องเพื่อดูเฉลย', init: () => ({ open: QUIZ.map(() => false) }) },
+  { kind: 'back' },
+];
+const N = PAGES.length / 2;
+
+// ============================================================ build pages
+const pages = [];
+let animClock = 0;
+function buildPage(i) {
+  const def = PAGES[i], side = i % 2 === 0 ? 'R' : 'L', cv = makeCanvas(), ctx = cv.getContext('2d');
+  const P = { i, def, side, cv, ctx, th: def.th || TH.intro, X0: side === 'R' ? 92 : 66, X1: side === 'R' ? 834 : 808, zones: [], st: def.init ? def.init() : {}, dirty: true, clock: 0 };
+  P.cx = (P.X0 + P.X1) / 2;
+  if (def.kind === 'cover') { P.draw = (t) => drawCover(ctx, t); P.anim = true; }
+  else if (def.kind === 'back') { P.draw = () => drawBack(ctx); }
+  else {
+    const base = makeCanvas(), b = base.getContext('2d');
+    paperBase(b, P); header(b, P); footer(b, P);
+    if (def.blocks) {
+      let s = 1, y;
+      for (; s > 0.72; s -= 0.04) { b.save(); y = renderBlocks(b, def.blocks, P.X0, 226, P.X1 - P.X0, P.th, s); b.restore(); if (y <= CH - 92) break; b.clearRect(0, 0, CW, CH); paperBase(b, P); header(b, P); footer(b, P); }
+      P.draw = () => ctx.drawImage(base, 0, 0);
+    } else if (def.kind === 'toc') P.draw = () => { ctx.drawImage(base, 0, 0); drawTOC(ctx, P); };
+    else if (def.kind === 'quiz') P.draw = () => { ctx.drawImage(base, 0, 0); drawQuiz(ctx, P); };
+    else { P.anim = true; P.draw = (t) => { ctx.drawImage(base, 0, 0); def.draw(ctx, t, P); }; }
+  }
+  P.tex = new THREE.CanvasTexture(cv);
+  P.tex.colorSpace = THREE.SRGBColorSpace;
+  if (side === 'L') { P.tex.wrapS = THREE.RepeatWrapping; P.tex.repeat.x = -1; P.tex.offset.x = 1; }
+  return P;
+}
+function redraw(P) { P.zones = []; P.clock = animClock; P.draw(animClock); P.tex.needsUpdate = true; P.dirty = false; }
+
+// ============================================================ three.js scene
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x000000, 0);
+stage.appendChild(renderer.domElement);
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.05, 60);
+scene.add(new THREE.HemisphereLight(0xfff6e8, 0x29415c, 1.25));
+const sun = new THREE.DirectionalLight(0xffffff, 1.7);
+sun.position.set(-1.5, 3.4, 1.6); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -2.2, right: 2.2, top: 2.2, bottom: -2.2, near: 0.5, far: 9 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.ShadowMaterial({ opacity: 0.32 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.002; ground.receiveShadow = true; scene.add(ground);
+const book = new THREE.Group(); scene.add(book);
+{
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  const g = x.createRadialGradient(128, 128, 20, 128, 128, 128); g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.7, PH + 0.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.0005; book.add(m);
+}
+function edgeTexture() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128; const x = c.getContext('2d');
+  x.fillStyle = '#efe7d6'; x.fillRect(0, 0, 64, 128);
+  for (let y = 0; y < 128; y += 4) { x.fillStyle = `rgba(120,100,70,${0.12 + rnd() * 0.1})`; x.fillRect(0, y, 64, 1); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const edgeMat = new THREE.MeshStandardMaterial({ map: edgeTexture(), roughness: 0.9 });
+const plainMat = new THREE.MeshStandardMaterial({ color: 0xefe7d6, roughness: 0.9 });
+const blocks = [-1, 1].map(sgn => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(PW * 0.985, 1, PH * 0.985), [edgeMat, edgeMat, plainMat, plainMat, edgeMat, edgeMat]);
+  m.position.x = sgn * PW * 0.5; m.scale.y = 0.001; m.receiveShadow = true; m.userData.sgn = sgn; book.add(m); return m;
+});
+const spine = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, PH + 0.02), new THREE.MeshStandardMaterial({ color: 0x0b2a4a, roughness: 0.6 }));
+spine.position.y = 0.004; book.add(spine);
+
+const sheets = [];
+const pickables = [];
+function makeSheets() {
+  for (let i = 0; i < N; i++) {
+    const geo = new THREE.PlaneGeometry(PW, PH, SX, SY);
+    const cover = i === 0 || i === N - 1;
+    const mf = new THREE.MeshStandardMaterial({ map: pages[2 * i].tex, roughness: cover ? 0.55 : 0.85, metalness: 0, side: THREE.FrontSide });
+    const mb = new THREE.MeshStandardMaterial({ map: pages[2 * i + 1].tex, roughness: cover ? 0.55 : 0.85, metalness: 0, side: THREE.BackSide });
+    mf.shadowSide = THREE.DoubleSide;
+    pages[2 * i].tex.anisotropy = maxAniso; pages[2 * i + 1].tex.anisotropy = maxAniso;
+    const front = new THREE.Mesh(geo, mf), back = new THREE.Mesh(geo, mb);
+    front.receiveShadow = back.receiveShadow = true;
+    front.userData = { sheet: i, face: 'front' }; back.userData = { sheet: i, face: 'back' };
+    book.add(front, back); pickables.push(front, back);
+    const s = { i, geo, front, back, cover, t: 0, vel: 0, side: 0, curl: 0, twist: 0, peel: 0, peelTarget: 0, drag: false, dragDir: 1,
+      hR: (N - 1 - i) * GAP + BASE, hL: i * GAP + BASE, dirty: true };
+    sheets.push(s);
+  }
+}
+function deform(s) {
+  const pos = s.geo.attributes.position.array, uv = s.geo.attributes.uv.array;
+  const theta = Math.PI * s.t, stiff = s.cover ? 0.12 : 1;
+  const curl = s.curl * stiff, peel = s.peel * (s.cover ? 0.3 : 1), tw = s.twist;
+  const h = s.hR + (s.hL - s.hR) * s.t, ds = PW / SX;
+  for (let j = 0; j <= SY; j++) {
+    const v = uv[(j * (SX + 1)) * 2 + 1], zn = (0.5 - v) * 2, z = (0.5 - v) * PH;
+    let x = 0, y = 0;
+    for (let i = 0; i <= SX; i++) {
+      if (i > 0) {
+        const sn = (i - 0.5) / SX, e = Math.max(0, (sn - 0.55) / 0.45);
+        let a = theta + curl * sn * sn * (1 + tw * zn) + peel * e * e * (0.55 + 0.45 * zn);
+        a = a < 0 ? 0 : a > Math.PI ? Math.PI : a;
+        x += Math.cos(a) * ds; y += Math.sin(a) * ds;
+      }
+      const k = (j * (SX + 1) + i) * 3;
+      pos[k] = x; pos[k + 1] = y + h; pos[k + 2] = z;
+    }
+  }
+  s.geo.attributes.position.needsUpdate = true;
+  s.geo.computeVertexNormals(); s.geo.computeBoundingSphere();
+}
+function step(s, dt) {
+  let changed = s.dirty;
+  const pk = s.peelTarget - s.peel;
+  if (Math.abs(pk) > 1e-4) { s.peel += pk * (1 - Math.exp(-dt * 10)); changed = true; } else if (s.peel !== s.peelTarget) { s.peel = s.peelTarget; changed = true; }
+  if (s.drag) { s.curl = s.dragDir * 0.85 * Math.sin(Math.PI * s.t); changed = true; }
+  else {
+    const goal = s.side, k = 58, c = 15.2;
+    if (Math.abs(goal - s.t) > 1e-4 || Math.abs(s.vel) > 1e-3) {
+      s.vel += (k * (goal - s.t) - c * s.vel) * dt; s.t += s.vel * dt;
+      if (s.t < 0) { s.t = 0; s.vel = 0; } if (s.t > 1) { s.t = 1; s.vel = 0; }
+      changed = true;
+    } else if (s.t !== goal) { s.t = goal; s.vel = 0; changed = true; }
+    const tc = -s.vel * 0.22;
+    if (Math.abs(tc - s.curl) > 1e-4) { s.curl += (tc - s.curl) * (1 - Math.exp(-dt * 12)); changed = true; } else if (s.curl !== tc) { s.curl = tc; changed = true; }
+    if (Math.abs(s.twist) > 1e-4) { s.twist *= Math.exp(-dt * 3); changed = true; }
+  }
+  if (changed) { deform(s); s.dirty = false; }
+  s.front.castShadow = s.t > 0.003 && s.t < 0.997;
+}
+const spreadNow = () => sheets.reduce((n, s) => n + (s.side === 1 ? 1 : 0), 0);
+function flipNext() { const c = spreadNow(); if (c < N) sheets[c].side = 1; updateHud(); }
+function flipPrev() { const c = spreadNow(); if (c > 0) sheets[c - 1].side = 0; updateHud(); }
+let goTimers = [];
+function goToSpread(target) {
+  goTimers.forEach(clearTimeout); goTimers = [];
+  target = clamp(target, 0, N); const c = spreadNow();
+  if (target > c) for (let i = c; i < target; i++) goTimers.push(setTimeout(() => { sheets[i].side = 1; updateHud(); }, (i - c) * 85));
+  else for (let i = c - 1; i >= target; i--) goTimers.push(setTimeout(() => { sheets[i].side = 0; updateHud(); }, (c - 1 - i) * 85));
+}
+function goToPage(p) { goToSpread(Math.floor((p + 1) / 2)); }
+
+// ============================================================ camera
+const controls = { target: new THREE.Vector3() };
+let orbit = null;
+function preset(name) {
+  const k = Math.max(1, 1.62 / (innerWidth / innerHeight));
+  return name === 'read'
+    ? { pos: new THREE.Vector3(0, 3.0 * k, 0.4 * k), target: new THREE.Vector3(0, 0, 0.03) }
+    : { pos: new THREE.Vector3(0.5 * k, 2.1 * k, 2.1 * k), target: new THREE.Vector3(0, 0, 0.07) };
+}
+let camTween = null, viewName = '3d';
+function setView(name, instant = false) {
+  viewName = name; const p = preset(name);
+  document.getElementById('view3d').setAttribute('aria-pressed', String(name === '3d'));
+  document.getElementById('viewRead').setAttribute('aria-pressed', String(name === 'read'));
+  if (instant) { camera.position.copy(p.pos); orbit.target.copy(p.target); orbit.update(); return; }
+  camTween = { t: 0, p0: camera.position.clone(), p1: p.pos, t0: orbit.target.clone(), t1: p.target };
+}
+
+// ============================================================ pointer interaction
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.12);
+function setRay(e) { const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
+function pick(e, objs = pickables) { setRay(e); return ray.intersectObjects(objs, false)[0] || null; }
+function hitInfo(hit) {
+  const { sheet, face } = hit.object.userData, p = face === 'front' ? sheet * 2 : sheet * 2 + 1;
+  const u = face === 'front' ? hit.uv.x : 1 - hit.uv.x;
+  return { p, P: pages[p], x: u * CW, y: (1 - hit.uv.y) * CH, outer: face === 'front' ? hit.uv.x : hit.uv.x, s: sheets[sheet] };
+}
+function zoneAt(P, x, y) { for (let k = P.zones.length - 1; k >= 0; k--) { const z = P.zones[k]; if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) return z; } return null; }
+function localX(e) { setRay(e); const pt = new THREE.Vector3(); return ray.ray.intersectPlane(dragPlane, pt) ? (pt.x - book.position.x) / PW : null; }
+let act = null, hoverSheet = null;
+function onDown(e) {
+  if (e.button !== 0 || !orbit) return;
+  const hit = pick(e); if (!hit) return;
+  const h = hitInfo(hit), z = zoneAt(h.P, h.x, h.y);
+  orbit.enabled = false;
+  renderer.domElement.setPointerCapture(e.pointerId);
+  if (z) {
+    act = { kind: 'zone', z, P: h.P, mesh: hit.object, sx: e.clientX, sy: e.clientY, moved: false };
+    if (z.drag) { z.drag(h.x, h.y, 'start'); h.P.dirty = true; }
+    return;
+  }
+  const s = h.s, x0 = localX(e);
+  act = { kind: 'page', s, h, sx: e.clientX, sy: e.clientY, moved: false, t0: s.t, x0: x0 ?? 0, dir: s.t < 0.5 ? 1 : -1, grabZ: clamp(hit.point.z / (PH / 2), -1, 1), lastT: s.t, lastTime: performance.now(), v: 0 };
+}
+function onMove(e) {
+  if (act && act.kind === 'zone') {
+    if (Math.hypot(e.clientX - act.sx, e.clientY - act.sy) > 4) act.moved = true;
+    if (act.z.drag) { const hit = pick(e, [act.mesh]); if (hit) { const h = hitInfo(hit); act.z.drag(h.x, h.y, 'move'); act.P.dirty = true; } }
+    return;
+  }
+  if (act && act.kind === 'page') {
+    if (!act.moved && Math.hypot(e.clientX - act.sx, e.clientY - act.sy) > 6) { act.moved = true; act.s.drag = true; act.s.dragDir = act.dir; act.s.twist = act.grabZ * 0.5; act.s.peelTarget = 0; }
+    if (act.moved) {
+      const lx = localX(e); if (lx == null) return;
+      const ang = Math.acos(clamp(lx, -1, 1)), ang0 = Math.acos(clamp(act.x0, -1, 1)), s = act.s;
+      s.t = act.dir > 0 ? clamp(act.t0 + (ang - ang0) / Math.max(0.2, Math.PI - ang0) * (1 - act.t0), 0, 1)
+                        : clamp(act.t0 - (ang0 - ang) / Math.max(0.2, ang0) * act.t0, 0, 1);
+      const now = performance.now(), dts = Math.max(0.001, (now - act.lastTime) / 1000);
+      act.v = lerp(act.v, (s.t - act.lastT) / dts, 0.35); act.lastT = s.t; act.lastTime = now;
+    }
+    return;
+  }
+  if (e.buttons) return;
+  const hit = pick(e);
+  let cursor = '', peelS = null, peelV = 0;
+  if (hit) {
+    const h = hitInfo(hit), z = zoneAt(h.P, h.x, h.y);
+    if (z) cursor = z.cursor || 'pointer';
+    else {
+      cursor = 'grab';
+      const top = h.s.i === spreadNow() || h.s.i === spreadNow() - 1;
+      if (top && h.outer > 0.8 && h.s.t < 0.01) { peelS = h.s; peelV = 0.55; }
+      if (top && h.outer > 0.8 && h.s.t > 0.99) { peelS = h.s; peelV = -0.55; }
+    }
+  }
+  renderer.domElement.style.cursor = cursor;
+  if (hoverSheet && hoverSheet !== peelS) hoverSheet.peelTarget = 0;
+  hoverSheet = peelS; if (peelS) peelS.peelTarget = peelV;
+}
+function onUp(e) {
+  if (!act) return;
+  if (act.kind === 'zone') {
+    const hit = pick(e, [act.mesh]);
+    if (act.z.drag) { const h = hit ? hitInfo(hit) : null; act.z.drag(h ? h.x : -1, h ? h.y : -1, 'end'); act.P.dirty = true; }
+    if (act.z.click && !act.moved) { act.z.click(); act.P.dirty = true; }
+  } else {
+    const s = act.s;
+    if (act.moved) { s.drag = false; s.vel = clamp(act.v, -6, 6); const pred = s.t + s.vel * 0.18; s.side = pred > 0.5 ? 1 : 0; updateHud(); }
+    else if (act.h.s.side === 0) flipNext(); else flipPrev();
+  }
+  act = null; orbit.enabled = true;
+}
+
+// ============================================================ HUD
+const topicOf = (p) => { const d = PAGES[p]; return d && d.title ? d.title : ''; };
+function updateHud() {
+  const c = spreadNow();
+  const no = document.getElementById('pageNo'), tp = document.getElementById('pageTopic');
+  if (c === 0) { no.textContent = 'ปกหน้า'; tp.textContent = 'แตะเพื่อดูสารบัญ'; }
+  else if (c === N) { no.textContent = 'ปกหลัง'; tp.textContent = 'จบเล่ม'; }
+  else { const l = 2 * c - 1, r = 2 * c; no.textContent = `หน้า ${l}–${r} / ${2 * N - 2}`; tp.textContent = topicOf(l % 2 ? l : r) || topicOf(r); }
+}
+function buildTocMenu() {
+  const el = document.getElementById('toc'); el.innerHTML = '';
+  const add = (name, p) => { const b = document.createElement('button'); b.innerHTML = `<span></span><span>${p}</span>`; b.firstChild.textContent = name; b.onclick = () => { goToPage(p); toggleToc(false); }; el.appendChild(b); };
+  add('ปกหน้า', 0);
+  for (const [, ch, items] of TOC) { const h = document.createElement('h2'); h.textContent = ch; el.appendChild(h); items.forEach(([n, p]) => add(n, p)); }
+}
+function toggleToc(show) {
+  const el = document.getElementById('toc'), b = document.getElementById('tocBtn');
+  const v = show ?? el.hidden; el.hidden = !v; b.setAttribute('aria-expanded', String(v));
+}
+
+// ============================================================ main loop
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let paused = reduced, last = performance.now(), lastDraw = -1;
+function setPaused(v) {
+  paused = v; const b = document.getElementById('animBtn');
+  b.setAttribute('aria-pressed', String(v));
+  b.innerHTML = v
+    ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg><span class="lbl">เล่นภาพ</span>'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span class="lbl">หยุดภาพ</span>';
+}
+function visiblePages() {
+  const c = spreadNow(), set = new Set();
+  if (c < N) set.add(2 * c); if (c > 0) set.add(2 * c - 1);
+  for (const s of sheets) if (s.t > 0.001 && s.t < 0.999) { set.add(2 * s.i); set.add(2 * s.i + 1); }
+  return set;
+}
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!paused) animClock += dt;
+  for (const s of sheets) step(s, dt);
+  const c = spreadNow(), gx = c === 0 ? -PW / 2 : c === N ? PW / 2 : 0;
+  book.position.x += (gx - book.position.x) * (1 - Math.exp(-dt * 5));
+  for (const b of blocks) {
+    const n = sheets.filter(s => (b.userData.sgn > 0 ? s.side === 0 : s.side === 1)).length;
+    const hgt = Math.max(0.0005, (n - 1) * GAP + BASE - 0.0016);
+    b.visible = n > 0; b.scale.y += (hgt - b.scale.y) * (1 - Math.exp(-dt * 8)); b.position.y = b.scale.y / 2;
+  }
+  if (camTween) {
+    camTween.t = Math.min(1, camTween.t + dt / 0.9); const f = camTween.t < 0.5 ? 2 * camTween.t ** 2 : 1 - (-2 * camTween.t + 2) ** 2 / 2;
+    camera.position.lerpVectors(camTween.p0, camTween.p1, f); orbit.target.lerpVectors(camTween.t0, camTween.t1, f);
+    if (camTween.t >= 1) camTween = null;
+  }
+  orbit.update();
+  const tick = !paused && animClock - lastDraw > 1 / 30;
+  for (const p of visiblePages()) { const P = pages[p]; if (P.dirty || (tick && P.anim)) redraw(P); }
+  if (tick) lastDraw = animClock;
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+// ============================================================ boot
+async function boot() {
+  const want = ['400 26px Sarabun', '700 26px Sarabun', '600 26px Sarabun', '600 40px Mitr', '500 26px Mitr', '600 20px "IBM Plex Sans Thai"', '500 20px "IBM Plex Sans Thai"'];
+  try { await Promise.race([Promise.all(want.map(f => document.fonts.load(f, 'กขคabc123'))), new Promise(r => setTimeout(r, 4000))]); } catch (err) { /* fall back to system Thai fonts */ }
+  for (let i = 0; i < PAGES.length; i++) pages.push(buildPage(i));
+  for (const P of pages) redraw(P);
+  makeSheets();
+  renderer.domElement.addEventListener('pointerdown', onDown);
+  orbit = new OrbitControls(camera, renderer.domElement);
+  orbit.enableDamping = true; orbit.dampingFactor = 0.08;
+  orbit.minDistance = 0.9; orbit.maxDistance = 7; orbit.maxPolarAngle = 1.38;
+  orbit.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  setView('3d', true);
+  updateHud(); buildTocMenu(); setPaused(reduced);
+  document.getElementById('loader').classList.add('done');
+  requestAnimationFrame(frame);
+  window.__book = { sheets, pages, goToPage, flipNext, flipPrev, setView, camera, renderer, scene, orbit, book };
+}
+document.getElementById('prevBtn').onclick = flipPrev;
+document.getElementById('nextBtn').onclick = flipNext;
+document.getElementById('tocBtn').onclick = () => toggleToc();
+document.getElementById('view3d').onclick = () => setView('3d');
+document.getElementById('viewRead').onclick = () => setView('read');
+document.getElementById('animBtn').onclick = () => setPaused(!paused);
+document.getElementById('fsBtn').onclick = () => { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen?.())?.catch?.(() => {}); };
+const help = document.getElementById('help');
+document.getElementById('helpBtn').onclick = () => { help.hidden = !help.hidden; };
+document.getElementById('helpClose').onclick = () => { help.hidden = true; };
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') flipNext();
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') flipPrev();
+  else if (e.key === 'Home') goToSpread(0);
+  else if (e.key === 'End') goToSpread(N);
+  else if (e.key === 'Escape') toggleToc(false);
+});
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (orbit) setView(viewName);
+});
+boot();
+</script>
+
+</html>
