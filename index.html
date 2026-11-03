@@ -92,6 +92,8 @@ button { font: inherit; color: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 640px) {
   .brand .eyebrow { display: none; }
+  .brand { display: none; }
+  .topbar { justify-content: center; }
   .brand h1 { font-size: 15px; }
   .btn .lbl { display: none; }
   .tools { flex-wrap: nowrap; gap: 2px; padding: 4px; }
@@ -110,6 +112,9 @@ button { font: inherit; color: inherit; }
     <h1>การหมุนเวียนของลมและน้ำในมหาสมุทร</h1>
   </div>
   <div class="tools glass" role="toolbar" aria-label="เครื่องมือ">
+    <button class="btn" id="modeBtn" aria-pressed="false" title="สลับหน้าเดียว / หน้าคู่">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="3.5" width="12" height="17" rx="1.5"/><path d="M9 8h6M9 11.5h6M9 15h4"/></svg><span class="lbl">หน้าคู่</span>
+    </button>
     <button class="btn" id="view3d" aria-pressed="true" title="มุมมอง 3 มิติ">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><span class="lbl">3D</span>
     </button>
@@ -1643,8 +1648,20 @@ function step(s, dt) {
   s.front.castShadow = s.t > 0.003 && s.t < 0.997;
 }
 const spreadNow = () => sheets.reduce((n, s) => n + (s.side === 1 ? 1 : 0), 0);
-function flipNext() { const c = spreadNow(); if (c < N) sheets[c].side = 1; updateHud(); }
-function flipPrev() { const c = spreadNow(); if (c > 0) sheets[c - 1].side = 0; updateHud(); }
+function flipNext() { const c = spreadNow(); if (c < N) sheets[c].side = 1; focus = 'L'; updateHud(); }
+function flipPrev() { const c = spreadNow(); if (c > 0) sheets[c - 1].side = 0; focus = 'R'; updateHud(); }
+// Single-page mode (phones): the camera frames one page; "next" moves left page → right page → turn the sheet.
+let single = false, focus = 'R', followX = 0;
+const autoSingle = () => innerWidth < innerHeight * 0.9 || innerWidth < 700;
+function focusSide() { const c = spreadNow(); return c === 0 ? 'R' : c === N ? 'L' : focus; }
+function next() { if (single && focusSide() === 'L' && spreadNow() < N) { focus = 'R'; updateHud(); } else flipNext(); }
+function prev() { if (single && focusSide() === 'R' && spreadNow() > 0) { focus = 'L'; updateHud(); } else flipPrev(); }
+function setSingle(v) {
+  single = v; const b = document.getElementById('modeBtn');
+  b.setAttribute('aria-pressed', String(v));
+  b.querySelector('.lbl').textContent = v ? 'หน้าเดียว' : 'หน้าคู่';
+  if (orbit) setView(v ? 'read' : viewName); updateHud();
+}
 let goTimers = [];
 function goToSpread(target) {
   goTimers.forEach(clearTimeout); goTimers = [];
@@ -1652,16 +1669,25 @@ function goToSpread(target) {
   if (target > c) for (let i = c; i < target; i++) goTimers.push(setTimeout(() => { sheets[i].side = 1; updateHud(); }, (i - c) * 85));
   else for (let i = c - 1; i >= target; i--) goTimers.push(setTimeout(() => { sheets[i].side = 0; updateHud(); }, (c - 1 - i) * 85));
 }
-function goToPage(p) { goToSpread(Math.floor((p + 1) / 2)); }
+function goToPage(p) { focus = p % 2 ? 'L' : 'R'; goToSpread(Math.floor((p + 1) / 2)); updateHud(); }
 
 // ============================================================ camera
 const controls = { target: new THREE.Vector3() };
 let orbit = null;
 function preset(name) {
-  const k = Math.max(1, 1.62 / (innerWidth / innerHeight));
+  const a = innerWidth / innerHeight, fit = (single ? 1.08 : 1.22) / (2 * Math.tan(17 * D2R));
+  const d = Math.max(PH * 1.15, (single ? PW * 1.04 : 2 * PW) / a) * fit, x = followX;
   return name === 'read'
-    ? { pos: new THREE.Vector3(0, 3.0 * k, 0.4 * k), target: new THREE.Vector3(0, 0, 0.03) }
-    : { pos: new THREE.Vector3(0.5 * k, 2.1 * k, 2.1 * k), target: new THREE.Vector3(0, 0, 0.07) };
+    ? { pos: new THREE.Vector3(x, d, 0.12 * d + 0.03), target: new THREE.Vector3(x, 0, 0.03) }
+    : { pos: new THREE.Vector3(x + 0.22 * d, 0.95 * d, 0.9 * d), target: new THREE.Vector3(x, 0, 0.07) };
+}
+function followStep(dt) {
+  const want = single ? book.position.x + (focusSide() === 'R' ? PW / 2 : -PW / 2) : 0;
+  const nx = followX + (want - followX) * (1 - Math.exp(-dt * 6)), dx = nx - followX;
+  followX = nx;
+  if (Math.abs(dx) < 1e-6) return;
+  camera.position.x += dx; orbit.target.x += dx;
+  if (camTween) for (const v of [camTween.p0, camTween.p1, camTween.t0, camTween.t1]) v.x += dx;
 }
 let camTween = null, viewName = '3d';
 function setView(name, instant = false) {
@@ -1742,8 +1768,12 @@ function onUp(e) {
     if (act.z.click && !act.moved) { act.z.click(); act.P.dirty = true; }
   } else {
     const s = act.s;
-    if (act.moved) { s.drag = false; s.vel = clamp(act.v, -6, 6); const pred = s.t + s.vel * 0.18; s.side = pred > 0.5 ? 1 : 0; updateHud(); }
-    else if (act.h.s.side === 0) flipNext(); else flipPrev();
+    if (act.moved) {
+      s.drag = false; s.vel = clamp(act.v, -6, 6); const pred = s.t + s.vel * 0.18, was = s.side;
+      s.side = pred > 0.5 ? 1 : 0; if (s.side !== was) focus = s.side ? 'L' : 'R'; updateHud();
+    }
+    else if (act.h.s.side === 0) { if (single && focusSide() === 'L') { focus = 'R'; updateHud(); } else flipNext(); }
+    else { if (single && focusSide() === 'R') { focus = 'L'; updateHud(); } else flipPrev(); }
   }
   act = null; orbit.enabled = true;
 }
@@ -1755,6 +1785,7 @@ function updateHud() {
   const no = document.getElementById('pageNo'), tp = document.getElementById('pageTopic');
   if (c === 0) { no.textContent = 'ปกหน้า'; tp.textContent = 'แตะเพื่อดูสารบัญ'; }
   else if (c === N) { no.textContent = 'ปกหลัง'; tp.textContent = 'จบเล่ม'; }
+  else if (single) { const p = focusSide() === 'L' ? 2 * c - 1 : 2 * c; no.textContent = `หน้า ${p} / ${2 * N - 2}`; tp.textContent = topicOf(p); }
   else { const l = 2 * c - 1, r = 2 * c; no.textContent = `หน้า ${l}–${r} / ${2 * N - 2}`; tp.textContent = topicOf(l % 2 ? l : r) || topicOf(r); }
 }
 function buildTocMenu() {
@@ -1800,6 +1831,7 @@ function frame(now) {
     camera.position.lerpVectors(camTween.p0, camTween.p1, f); orbit.target.lerpVectors(camTween.t0, camTween.t1, f);
     if (camTween.t >= 1) camTween = null;
   }
+  followStep(dt);
   orbit.update();
   const tick = !paused && animClock - lastDraw > 1 / 30;
   for (const p of visiblePages()) { const P = pages[p]; if (P.dirty || (tick && P.anim)) redraw(P); }
@@ -1823,14 +1855,17 @@ async function boot() {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
-  setView('3d', true);
+  setSingle(autoSingle());
+  setView(single ? 'read' : '3d', true);
   updateHud(); buildTocMenu(); setPaused(reduced);
   document.getElementById('loader').classList.add('done');
   requestAnimationFrame(frame);
   window.__book = { sheets, pages, goToPage, flipNext, flipPrev, setView, camera, renderer, scene, orbit, book };
 }
-document.getElementById('prevBtn').onclick = flipPrev;
-document.getElementById('nextBtn').onclick = flipNext;
+document.getElementById('prevBtn').onclick = prev;
+document.getElementById('nextBtn').onclick = next;
+let manualMode = false;
+document.getElementById('modeBtn').onclick = () => { manualMode = true; setSingle(!single); };
 document.getElementById('tocBtn').onclick = () => toggleToc();
 document.getElementById('view3d').onclick = () => setView('3d');
 document.getElementById('viewRead').onclick = () => setView('read');
@@ -1840,8 +1875,8 @@ const help = document.getElementById('help');
 document.getElementById('helpBtn').onclick = () => { help.hidden = !help.hidden; };
 document.getElementById('helpClose').onclick = () => { help.hidden = true; };
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowRight' || e.key === 'PageDown') flipNext();
-  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') flipPrev();
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') next();
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') prev();
   else if (e.key === 'Home') goToSpread(0);
   else if (e.key === 'End') goToSpread(N);
   else if (e.key === 'Escape') toggleToc(false);
@@ -1849,7 +1884,8 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  if (orbit) setView(viewName);
+  if (!orbit) return;
+  if (!manualMode && autoSingle() !== single) setSingle(autoSingle()); else setView(viewName);
 });
 boot();
 </script>
