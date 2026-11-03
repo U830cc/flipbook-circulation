@@ -85,6 +85,7 @@ button { font: inherit; color: inherit; }
 #loader.done { opacity: 0; pointer-events: none; }
 #loader .ring { width: 46px; height: 46px; border-radius: 50%; border: 3px solid rgba(124,196,242,0.2); border-top-color: var(--accent); margin: 0 auto 14px; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 1240px) { .tools .btn .lbl { display: none; } }
 @media (max-width: 640px) {
   .brand .eyebrow { display: none; }
   .brand { display: none; }
@@ -116,6 +117,9 @@ button { font: inherit; color: inherit; }
     <button class="btn" id="viewRead" aria-pressed="false" title="มุมมองอ่าน (มองจากด้านบน)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h7a2 2 0 012 2v12a2 2 0 00-2-2H3zM21 5h-7a2 2 0 00-2 2v12a2 2 0 012-2h7z"/></svg><span class="lbl">อ่าน</span>
     </button>
+    <button class="btn" id="narBtn" aria-pressed="false" title="เปิดหรือปิดเสียงบรรยาย">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/></svg><span class="lbl">เสียงปิด</span>
+    </button>
     <button class="btn" id="popBtn" aria-pressed="true" title="แสดงโมเดลป๊อปอัป 3 มิติ">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 18h18M6 18l3-9 3 5 2-3 4 7"/><circle cx="16" cy="6" r="2"/></svg><span class="lbl">ป๊อปอัป</span>
     </button>
@@ -138,6 +142,7 @@ button { font: inherit; color: inherit; }
   <button class="btn pageinfo" id="tocBtn" aria-expanded="false" aria-controls="toc">
     <span><b id="pageNo">ปกหน้า</b><span id="pageTopic">แตะเพื่อดูสารบัญ</span></span>
   </button>
+  <button class="btn iconbtn" id="narPlay" hidden aria-label="เล่นเสียงบรรยายหน้านี้"></button>
   <button class="btn iconbtn" id="nextBtn" aria-label="หน้าถัดไป">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5l7 7-7 7"/></svg>
   </button>
@@ -152,6 +157,7 @@ button { font: inherit; color: inherit; }
     <li><b>คลิกขอบกระดาษ</b> หรือลากมุมกระดาษ เพื่อพลิกหน้า</li>
     <li><b>ลากพื้นที่ว่าง</b> เพื่อหมุนมุมมอง ลูกกลิ้งเมาส์เพื่อซูม</li>
     <li>แป้นลูกศร ← → ใช้พลิกหน้าได้</li>
+    <li><b>ปุ่มเสียง</b> เปิดเสียงบรรยายแต่ละหน้า</li>
   </ul>
   <div class="row"><button class="btn" id="helpClose">เข้าใจแล้ว</button></div>
 </aside>
@@ -2202,7 +2208,51 @@ function updateHud() {
   else if (c === N) { no.textContent = 'ปกหลัง'; tp.textContent = 'จบเล่ม'; }
   else if (single) { const p = focusSide() === 'L' ? 2 * c - 1 : 2 * c; no.textContent = `หน้า ${p} / ${2 * N - 2}`; tp.textContent = topicOf(p); }
   else { const l = 2 * c - 1, r = 2 * c; no.textContent = `หน้า ${l}–${r} / ${2 * N - 2}`; tp.textContent = topicOf(l % 2 ? l : r) || topicOf(r); }
+  narSync();
 }
+
+// ============================================================ narration (one MP3 per page in audio/)
+const narr = new Audio(); narr.preload = 'auto';
+let narOn = false, narQueue = [], narKey = '', narTimer = 0, narPage = null;
+function narPages() {
+  const c = spreadNow();
+  if (c === 0) return [0];
+  if (c === N) return [2 * N - 1];
+  if (single) return [focusSide() === 'L' ? 2 * c - 1 : 2 * c];
+  return [2 * c - 1, 2 * c];
+}
+function narUi() {
+  const b = document.getElementById('narPlay');
+  b.hidden = !narOn;
+  const playing = narOn && !narr.paused;
+  b.setAttribute('aria-label', playing ? 'หยุดเสียงบรรยายชั่วคราว' : 'เล่นเสียงบรรยายหน้านี้');
+  b.innerHTML = playing
+    ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg>';
+}
+function narNext() {
+  narPage = narQueue.shift() ?? null;
+  if (narPage == null) { narUi(); return; }
+  narr.src = `audio/p${String(narPage).padStart(2, '0')}.mp3`;
+  narr.play().catch(() => {}).finally(narUi);
+}
+function narStart(delay) { narr.pause(); clearTimeout(narTimer); narQueue = narPages(); narTimer = setTimeout(narNext, delay); narUi(); }
+function narSync() {
+  if (!narOn) return;
+  const key = narPages().join(',');
+  if (key === narKey) return;
+  narKey = key; narStart(700);
+}
+function setNar(v) {
+  narOn = v;
+  const b = document.getElementById('narBtn'); b.setAttribute('aria-pressed', String(v));
+  b.querySelector('.lbl').textContent = v ? 'เสียงเปิด' : 'เสียงปิด';
+  if (v) { narKey = narPages().join(','); narStart(0); }
+  else { narr.pause(); clearTimeout(narTimer); narQueue = []; narUi(); }
+}
+narr.addEventListener('ended', narNext);
+narr.addEventListener('pause', narUi);
+narr.addEventListener('play', narUi);
 function buildTocMenu() {
   const el = document.getElementById('toc'); el.innerHTML = '';
   const add = (name, p) => { const b = document.createElement('button'); b.innerHTML = `<span></span><span>${p}</span>`; b.firstChild.textContent = name; b.onclick = () => { goToPage(p); toggleToc(false); }; el.appendChild(b); };
@@ -2287,6 +2337,12 @@ document.getElementById('tocBtn').onclick = () => toggleToc();
 document.getElementById('view3d').onclick = () => setView('3d');
 document.getElementById('viewRead').onclick = () => setView('read');
 document.getElementById('popBtn').onclick = () => setPop(!popOn);
+document.getElementById('narBtn').onclick = () => setNar(!narOn);
+document.getElementById('narPlay').onclick = () => {
+  if (!narr.paused) narr.pause();
+  else if (narPage != null && narr.currentTime > 0 && !narr.ended) narr.play().catch(() => {});
+  else narStart(0);
+};
 document.getElementById('animBtn').onclick = () => setPaused(!paused);
 document.getElementById('fsBtn').onclick = () => { const d = document; (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen?.())?.catch?.(() => {}); };
 const help = document.getElementById('help');
@@ -2300,6 +2356,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') toggleToc(false);
 });
 window.addEventListener('resize', () => {
+  if (!innerWidth || !innerHeight) return;
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   if (!orbit) return;
