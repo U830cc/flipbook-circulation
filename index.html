@@ -1725,7 +1725,7 @@ function shadowAll(obj) { obj.traverse(o => { if (o.isMesh) { o.castShadow = tru
 function textSprite(txt, o = {}) {
   const { color = '#25303a', bg = 'rgba(255,255,255,0.93)', h = 0.032, border = null } = o;
   const c = document.createElement('canvas'), x = c.getContext('2d'), fs = 44;
-  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false }));
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false, depthTest: false }));
   spr.userData.set = (t, col = color, brd = border) => {
     const lines = String(t).split('\n');
     x.font = `600 ${fs}px ${F.label}`;
@@ -1854,7 +1854,7 @@ const POP = {
     }
     const ringM = new THREE.Mesh(new THREE.TorusGeometry(1, 0.0035, 8, 80), M(0xffd43b)); ringM.rotation.x = Math.PI / 2; fixed.add(ringM);
     const probe = arrow3(0xffd43b, 0.07, 0.006); fixed.add(probe);
-    const tag = textSprite('', { h: 0.026 }); fixed.add(tag); let lastLat = null;
+    const tag = textSprite('', { h: 0.026 }); tag.center.set(0, 0.5); tag.renderOrder = 12; fixed.add(tag); let lastLat = null;
     return { update(t, dt) {
       G.spin.rotation.y += dt * 0.25;
       const cl = fixed.worldToLocal(camera.position.clone()); plane.rotation.y = Math.atan2(cl.x, cl.z);
@@ -1872,7 +1872,7 @@ const POP = {
       probe.visible = !!info.v; probe.position.copy(pos);
       if (info.v) { const n = new THREE.Vector3(0, Math.cos(lat), -Math.sin(lat)); const d = new THREE.Vector3(info.v[0], 0, 0).addScaledVector(n, -info.v[1]).normalize().applyAxisAngle(UP, plane.rotation.y); probe.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), d); probe.position.addScaledVector(d, -0.035); }
       if (lastLat !== P.st.lat) { lastLat = P.st.lat; tag.userData.set(info.wind.split(' (')[0], info.col, info.col); }
-      tag.position.set(R + 0.13, R * Math.sin(lat), 0.02).applyAxisAngle(UP, plane.rotation.y);
+      tag.position.set(R * Math.cos(lat) + 0.02, R * Math.sin(lat), 0).applyAxisAngle(UP, plane.rotation.y);
     } };
   } },
   14: { rect: [92, 214, 742, 540], build(g, P) {
@@ -1910,7 +1910,7 @@ const POP = {
       wind.visible = ek.visible = wl.visible = el.visible = mag > 0.06;
       wind.scale.setScalar(0.5 + mag); wind.rotation.y = w >= 0 ? 0 : Math.PI;
       ek.scale.setScalar(0.5 + mag); ek.rotation.y = w >= 0 ? -Math.PI / 2 : Math.PI / 2;
-      wl.position.set(wind.position.x, wind.position.y + 0.04, wind.position.z); el.position.set(ek.position.x - 0.06 * s, ek.position.y + 0.04, ek.position.z);
+      wl.position.set(wind.position.x, wind.position.y + 0.04, wind.position.z); el.position.set(ek.position.x - 0.1 * s, ek.position.y + 0.035, ek.position.z + 0.07);
       wl.userData.lastS !== s && (wl.userData.set(s > 0 ? 'ลมพัดลงใต้' : 'ลมพัดขึ้นเหนือ'), wl.userData.lastS = s);
       fish.forEach((f, i) => { f.visible = i < Math.round(6 * Math.max(w, 0)); f.position.set(X(x + W * 0.38 + i * 40) + 0.02 * Math.sin(t * 0.9 + i), Y(sY + 50 + (i % 3) * 22), -0.22 + i * 0.05); f.rotation.y = Math.cos(t * 0.9 + i) > 0 ? 0 : Math.PI; });
       const pa = surf.geometry.attributes.position;
@@ -2018,7 +2018,7 @@ const POP = {
     let walker = null, wFlow = null, lastXr = null;
     const trades = Array.from({ length: 5 }, () => { const a = arrow3(0x37424d, 0.09, 0.006); g.add(a); return a; });
     const ups = Array.from({ length: 10 }, () => { const d = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8), M(0xa5d8ff)); g.add(d); return d; });
-    const stateTag = textSprite('ภาวะปกติ', { h: 0.032 }); stateTag.position.set(X(P.cx), Y(top) + 0.06, zc); g.add(stateTag); let lastState = '';
+    const stateTag = textSprite('ภาวะปกติ', { h: 0.032 }); stateTag.position.set(X(P.cx), Y(sY) + 0.4, zc); g.add(stateTag); let lastState = '';
     return { update(t) {
       if (!st._surf) return;
       const surfY = (px) => Y(st._surf(px)), thY = (px) => Y(st._thermo(px)), warmF = (st._warm - wl) / (wr - wl);
