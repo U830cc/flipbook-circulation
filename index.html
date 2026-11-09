@@ -367,6 +367,11 @@ function tokens(text) {
     const b = part.length > 4 && part.startsWith('**') && part.endsWith('**');
     for (const w of words(b ? part.slice(2, -2) : part)) out.push({ w, b });
   }
+  // keep brackets glued to their word so a line never starts with ")" or ends with "("
+  for (let i = out.length - 1; i > 0; i--) {
+    if (/^[)\],.:;%]/.test(out[i].w) && !/\s$/.test(out[i - 1].w)) { out[i - 1].w += out[i].w; out.splice(i, 1); }
+    else if (/[(\[]$/.test(out[i - 1].w) && out[i - 1].b === out[i].b) { out[i - 1].w += out[i].w; out.splice(i, 1); }
+  }
   return out;
 }
 function wrap(ctx, text, maxW, size, fam = F.body, wt = 400, bw = 700) {
@@ -1281,6 +1286,177 @@ function dENSO(ctx, t, P) {
   slider(ctx, P, 'e', X0 + 40, 1080, W - 80, { min: -1, max: 1, title: 'ลากเพื่อเปลี่ยนความแรงของลมค้า', left: 'ลมค้าแรง (ลานีญา)', right: 'ลมค้าอ่อน (เอลนีโญ)' });
 }
 
+// Near the ground PGF = Coriolis + friction; with wind at angle a across the isobars, Coriolis = G·cos a and friction = G·sin a.
+const SURF = [
+  { f: 0, name: 'บรรยากาศชั้นบน (สูงกว่า 1 กม.)', col: '#1c7ed6' },
+  { f: 0.33, name: 'ผิวน้ำทะเล', col: '#0c8599' },
+  { f: 0.66, name: 'ทุ่งหญ้าและไร่นา', col: '#2b8a3e' },
+  { f: 1, name: 'เมืองและภูเขา', col: '#7a5230' },
+];
+const surfAt = (f) => SURF.reduce((b, s) => (Math.abs(s.f - f) < Math.abs(b.f - f) ? s : b));
+function surfStrip(ctx, x, y, w, h, f, t) {
+  if (f < 0.17) {
+    const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#dbe9f7'); g.addColorStop(1, '#c4dbf2');
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 4; i++) { const cx = x + mod1(i * 0.27 + t * 0.01) * w; circle(ctx, cx, y + h * 0.5, 9); ctx.fill(); circle(ctx, cx + 12, y + h * 0.42, 11); ctx.fill(); circle(ctx, cx + 25, y + h * 0.52, 8); ctx.fill(); }
+    return;
+  }
+  if (f < 0.5) {
+    ctx.fillStyle = '#7cc2d6'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2;
+    for (let r = 0; r < 2; r++) { ctx.beginPath(); for (let px = 0; px <= w; px += 8) ctx.lineTo(x + px, y + h * (0.35 + r * 0.35) + 3 * Math.sin(px * 0.08 + t * 2 + r)); ctx.stroke(); }
+    return;
+  }
+  if (f < 0.83) {
+    ctx.fillStyle = '#9ccf7a'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = '#4f8a2c'; ctx.lineWidth = 2;
+    for (let px = 6; px < w; px += 11) { ctx.beginPath(); ctx.moveTo(x + px, y + h); ctx.lineTo(x + px + 3 * Math.sin(t * 2 + px), y + h * 0.35); ctx.stroke(); }
+    for (let px = 40; px < w; px += 130) { circle(ctx, x + px, y + h * 0.3, 13, '#3d7a2a'); ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x + px - 2, y + h * 0.3, 4, h * 0.7); }
+    return;
+  }
+  ctx.fillStyle = '#b9b0a2'; ctx.fillRect(x, y, w, h);
+  for (let px = 0, k = 0; px < w; k++) { const bw = 22 + (k * 37) % 26, bh = h * (0.45 + ((k * 53) % 50) / 100); ctx.fillStyle = k % 2 ? '#6c757d' : '#868e96'; ctx.fillRect(x + px, y + h - bh, bw, bh); ctx.fillStyle = 'rgba(255,236,170,0.7)'; for (let wy = y + h - bh + 6; wy < y + h - 6; wy += 10) ctx.fillRect(x + px + 5, wy, bw - 10, 3); px += bw + 4; }
+}
+function dFriction(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P;
+  stitle(ctx, 'ก. มองจากด้านบน: ลากซ้าย-ขวาเพื่อเปลี่ยนพื้นผิว', X0, 214, th);
+  const top = 252, bot = 640, W = X1 - X0, f = st.f, a = f * 40 * D2R, v = Math.cos(a);
+  ctx.save(); rr(ctx, X0, top, W, bot - top, 16); ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(X0, top, W, bot - top);
+  surfStrip(ctx, X0, bot - 46, W, 46, f, t);
+  glow(ctx, cx, top - 40, 180, 'rgba(235,90,70,0.16)'); glow(ctx, cx, bot + 10, 180, 'rgba(70,130,230,0.14)');
+  const isoY = [300, 380, 460, 540];
+  ctx.strokeStyle = 'rgba(40,55,80,0.45)'; ctx.lineWidth = 2;
+  isoY.forEach((y, i) => { ctx.beginPath(); ctx.moveTo(X0, y); ctx.lineTo(X1, y); ctx.stroke(); label(ctx, String(1000 + 4 * i), X0 + 30, y, { size: 13, wt: 600, color: C.soft, bg: C.paper, pad: 3 }); });
+  bigLetter(ctx, 'L', X1 - 40, top + 26, C.lo, 20); label(ctx, 'ความกดอากาศต่ำ', X1 - 74, top + 24, { size: 14, color: C.lo, align: 'right' });
+  bigLetter(ctx, 'H', X1 - 40, bot - 72, C.hi, 20); label(ctx, 'ความกดอากาศสูง', X1 - 74, bot - 74, { size: 14, color: C.hi, align: 'right' });
+  const wx = Math.cos(a), wy = -Math.sin(a), sp = 70 + 110 * v;
+  for (let k = 0; k < 26; k++) {
+    const u = mod1(k * 0.381 + t * sp / 900), x = X0 - 60 + u * (W + 120), y0 = 300 + ((k * 97) % 240);
+    const y = y0 + (x - X0) * wy / wx * 0.35;
+    if (y < top + 8 || y > bot - 52) continue;
+    arrow(ctx, x, y, x + wx * 26, y + wy * 26, { color: rgba(th.a, 0.35 + 0.4 * Math.sin(Math.PI * u)), w: 2.5, head: 8 });
+  }
+  const ox = cx - 40, oy = 420, G = 120;
+  ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(37,48,58,0.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ox - 120, oy); ctx.lineTo(ox + 190, oy); ctx.stroke(); ctx.setLineDash([]);
+  arrow(ctx, ox, oy, ox + wx * 150 * v, oy + wy * 150 * v, { color: '#25303a', w: 7, head: 18 });
+  label(ctx, 'ลม', ox + wx * 150 * v + 18, oy + wy * 150 * v - 14, { size: 18, wt: 700, align: 'left' });
+  arrow(ctx, ox, oy, ox, oy - G, { color: C.lo, w: 5, head: 14 });
+  label(ctx, 'PGF', ox - 12, oy - G + 6, { size: 16, wt: 700, color: C.lo, align: 'right' });
+  const cxv = -wy, cyv = wx, cm = G * Math.cos(a);
+  arrow(ctx, ox, oy, ox + cxv * cm, oy + cyv * cm, { color: '#7048e8', w: 5, head: 14 });
+  label(ctx, 'คอริออลิส', ox + cxv * cm + 10, oy + cyv * cm + 16, { size: 16, wt: 700, color: '#7048e8', align: 'left' });
+  if (f > 0.03) {
+    const fm = G * Math.sin(a);
+    arrow(ctx, ox, oy, ox - wx * fm, oy - wy * fm, { color: '#c2410c', w: 5, head: 14 });
+    label(ctx, 'แรงเสียดทาน', ox - wx * fm - 10, oy - wy * fm + 18, { size: 16, wt: 700, color: '#c2410c', align: 'right' });
+  }
+  if (a > 0.05) { ctx.strokeStyle = 'rgba(37,48,58,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ox, oy, 70, -a, 0); ctx.stroke(); label(ctx, Math.round(a / D2R) + '°', ox + 84, oy - 24 * Math.sin(a / 2) - 6, { size: 15, wt: 700, align: 'left' }); }
+  circle(ctx, ox, oy, 6, '#25303a');
+  label(ctx, '← เรียบ · ขรุขระ →', cx, bot - 62, { size: 15, wt: 600, color: C.ink, bg: 'rgba(255,255,255,0.85)', pad: 6, r: 10 });
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(40,55,80,0.2)'; ctx.lineWidth = 2; rr(ctx, X0, top, W, bot - top, 16); ctx.stroke();
+  P.zones.push({ x: X0, y: top, w: W, h: bot - top, cursor: 'ew-resize', drag: (px) => { st.f = clamp((px - X0 - 40) / (W - 80), 0, 1); } });
+  hint(ctx, P, 'ลากไปทางขวา = พื้นผิวขรุขระขึ้น แรงเสียดทานมากขึ้น', bot + 26);
+  const s = surfAt(f), ry = 690;
+  ctx.fillStyle = rgba(th.a, 0.08); rr(ctx, X0, ry, W, 92, 12); ctx.fill();
+  label(ctx, s.name, X0 + 18, ry + 26, { size: 22, wt: 600, color: s.col, align: 'left', fam: F.display });
+  label(ctx, `ลมเฉียงข้ามไอโซบาร์ ${Math.round(a / D2R)}°  ·  อัตราเร็วลม ${Math.round(v * 100)}% ของลมชั้นบน`, X0 + 18, ry + 62, { size: 18, wt: 600, align: 'left' });
+  para(ctx, f < 0.05 ? 'ไม่มีแรงเสียดทาน PGF กับแรงคอริออลิสสมดุลกัน ลมพัด**ขนานกับไอโซบาร์** (ลมจีโอสโทรฟิก)'
+    : 'แรงเสียดทานทำให้ลม**ช้าลง** แรงคอริออลิสจึง**ลดลง** ลมจึง**เบนเข้าหาความกดอากาศต่ำ**', X0, 800, W, 19, { lh: 29, bcolor: th.a });
+  stitle(ctx, 'ข. มองด้านข้าง: อัตราเร็วลมตามความสูง', X0, 868, th);
+  const gx = X0, gw = W, gy0 = 1060, gh = 150;
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; rr(ctx, gx, gy0 - gh, gw, gh + 22, 12); ctx.fill();
+  surfStrip(ctx, gx + 120, gy0, gw - 140, 20, Math.max(f, 0.34), t);
+  ctx.setLineDash([6, 6]); ctx.strokeStyle = rgba(th.a, 0.6); ctx.beginPath(); ctx.moveTo(gx + 110, gy0 - gh + 30); ctx.lineTo(gx + gw - 10, gy0 - gh + 30); ctx.stroke(); ctx.setLineDash([]);
+  label(ctx, 'ประมาณ 1 กม.', gx + 14, gy0 - gh + 30, { size: 14, wt: 600, color: th.a, align: 'left' });
+  label(ctx, 'ชั้นที่มีแรงเสียดทาน', gx + 14, gy0 - 60, { size: 14, wt: 600, color: C.soft, align: 'left' });
+  label(ctx, 'ผิวโลก', gx + 14, gy0 + 10, { size: 14, wt: 600, color: C.soft, align: 'left' });
+  for (let k = 0; k < 5; k++) {
+    const hgt = (k + 0.5) / 5, y = gy0 - 8 - hgt * (gh - 40), fr = Math.min(1, Math.pow(hgt, 0.3 + 0.9 * (1 - f * 0.6))), len = 60 + 380 * (f < 0.05 ? 1 : fr);
+    arrow(ctx, gx + 130, y, gx + 130 + len, y, { color: rgba(th.a, 0.85), w: 4, head: 12, dash: [14, 8], off: -t * 40 * (len / 440) });
+  }
+}
+
+const CENT = { L: { sgn: 1, name: 'ความกดอากาศต่ำ', col: '#c92a2a' }, H: { sgn: -1, name: 'ความกดอากาศสูง', col: '#1c63c9' } };
+function dCentripetal(ctx, t, P) {
+  const { X0, X1, cx, th, st } = P, W = X1 - X0;
+  stitle(ctx, 'ก. ลมเคลื่อนเป็นวงรอบศูนย์กลางความกดอากาศ', X0, 214, th);
+  const btn = (x, y, w, txt, on, click) => {
+    ctx.fillStyle = on ? th.a : 'rgba(255,255,255,0.75)'; rr(ctx, x, y, w, 38, 19); ctx.fill();
+    ctx.strokeStyle = th.a; ctx.lineWidth = 2; ctx.stroke();
+    label(ctx, txt, x + w / 2, y + 19, { size: 16, wt: 700, color: on ? '#fff' : th.a });
+    P.zones.push({ x, y, w, h: 38, cursor: 'pointer', click });
+  };
+  btn(X0, 250, 160, 'ความกดต่ำ L', st.c === 'L', () => { st.c = 'L'; });
+  btn(X0 + 170, 250, 160, 'ความกดสูง H', st.c === 'H', () => { st.c = 'H'; });
+  btn(X1 - 330, 250, 160, 'ซีกโลกเหนือ', st.n > 0, () => { st.n = 1; });
+  btn(X1 - 160, 250, 160, 'ซีกโลกใต้', st.n < 0, () => { st.n = -1; });
+  const top = 300, bot = 720, ccx = cx, ccy = (top + bot) / 2, c = CENT[st.c], f = st.f;
+  // rot: +1 = counterclockwise on screen; NH low turns counterclockwise
+  const rot = c.sgn * st.n, inA = f * 32 * D2R * c.sgn;
+  ctx.save(); rr(ctx, X0, top, W, bot - top, 16); ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(X0, top, W, bot - top);
+  glow(ctx, ccx, ccy, 200, rgba(c.col, 0.18));
+  ctx.strokeStyle = 'rgba(40,55,80,0.4)'; ctx.lineWidth = 2;
+  for (let i = 1; i <= 4; i++) { ring(ctx, ccx, ccy, 46 * i); label(ctx, String(st.c === 'L' ? 996 + 4 * i : 1024 - 4 * i), ccx, ccy - 46 * i, { size: 12, wt: 600, color: C.soft, bg: C.paper, pad: 2 }); }
+  bigLetter(ctx, st.c, ccx, ccy, c.col, 24);
+  if (!st.pts) st.pts = Array.from({ length: 36 }, (_, k) => ({ r: 40 + (k * 53) % 160, q: k * 2.399 }));
+  const dt = clamp(t - (st.lt ?? t), 0, 0.1); st.lt = t;
+  for (const p of st.pts) {
+    const w = 0.9 / Math.max(p.r, 40) * 60;
+    p.q -= rot * w * dt; p.r -= Math.tan(inA) * w * p.r * dt;
+    if (p.r < 30) p.r = 200; if (p.r > 205) p.r = 34;
+    const x = ccx + p.r * Math.cos(p.q), y = ccy + p.r * Math.sin(p.q);
+    const tx = rot * Math.sin(p.q), ty = -rot * Math.cos(p.q), nx = -Math.cos(p.q), ny = -Math.sin(p.q);
+    const dx = tx * Math.cos(inA) + nx * Math.sin(inA), dy = ty * Math.cos(inA) + ny * Math.sin(inA);
+    arrow(ctx, x - dx * 10, y - dy * 10, x + dx * 12, y + dy * 12, { color: rgba(th.a, 0.6), w: 2.5, head: 8 });
+  }
+  // force diagram at the point above the centre
+  const q = -Math.PI / 2, R0 = 150, px = ccx + R0 * Math.cos(q), py = ccy + R0 * Math.sin(q);
+  const tx = rot * Math.sin(q), ty = -rot * Math.cos(q), nx = -Math.cos(q), ny = -Math.sin(q);
+  const wx = tx * Math.cos(inA) + nx * Math.sin(inA), wy = ty * Math.cos(inA) + ny * Math.sin(inA);
+  const crx = st.n > 0 ? -wy : wy, cry = st.n > 0 ? wx : -wx;
+  const pg = st.c === 'L' ? 80 : 50, co = st.c === 'L' ? 55 : 80, sx = X0 + 120, sy = ccy + 30;
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; rr(ctx, sx - 108, sy - 104, 216, 208, 14); ctx.fill();
+  ctx.strokeStyle = rgba(th.a, 0.4); ctx.lineWidth = 1.5; ctx.stroke();
+  label(ctx, 'แรงที่จุดนี้', sx, sy - 90, { size: 14, wt: 700, color: C.soft });
+  arrow(ctx, sx, sy, sx + wx * 70, sy + wy * 70, { color: '#25303a', w: 5, head: 14 });
+  arrow(ctx, sx, sy, sx + nx * pg * c.sgn, sy + ny * pg * c.sgn, { color: C.lo, w: 4, head: 12 });
+  arrow(ctx, sx, sy, sx + crx * co, sy + cry * co, { color: '#7048e8', w: 4, head: 12 });
+  arrow(ctx, sx + 6, sy, sx + 6 + nx * 32, sy + ny * 32, { color: '#2b8a3e', w: 6, head: 14, dash: [5, 4] });
+  label(ctx, 'ลม', sx + wx * 70 + 4, sy + wy * 70 - 12, { size: 14, wt: 700, align: wx > 0 ? 'left' : 'right' });
+  label(ctx, 'PGF', sx + nx * pg * c.sgn * 1.15 + 14, sy + ny * pg * c.sgn * 1.15, { size: 13, wt: 700, color: C.lo, align: 'left' });
+  label(ctx, 'คอริออลิส', sx + crx * co * 1.12 - 10, sy + cry * co * 1.12, { size: 13, wt: 700, color: '#7048e8', align: 'right' });
+  circle(ctx, px, py, 7, '#25303a');
+  ctx.setLineDash([4, 5]); ctx.strokeStyle = 'rgba(37,48,58,0.4)'; ctx.beginPath(); ctx.moveTo(px - 8, py + 4); ctx.lineTo(sx + 96, sy - 100); ctx.stroke(); ctx.setLineDash([]);
+  label(ctx, '← ชั้นบน · ใกล้ผิวโลก →', ccx, bot - 22, { size: 15, wt: 600, color: C.ink, bg: 'rgba(255,255,255,0.85)', pad: 6, r: 10 });
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(40,55,80,0.2)'; ctx.lineWidth = 2; rr(ctx, X0, top, W, bot - top, 16); ctx.stroke();
+  P.zones.push({ x: X0, y: top, w: W, h: bot - top, cursor: 'ew-resize', drag: (qx) => { st.f = clamp((qx - X0 - 40) / (W - 80), 0, 1); } });
+  hint(ctx, P, 'ลากไปทางขวาเพื่อลงมาใกล้ผิวโลก (มีแรงเสียดทาน)', bot + 24);
+  label(ctx, '▶ เส้นประสีเขียว = แรงลัพธ์ = แรงเข้าสู่ศูนย์กลาง ชี้เข้าหาศูนย์กลางเสมอ', X0, 774, { size: 15, wt: 600, color: '#2b8a3e', align: 'left' });
+  const dirTxt = rot > 0 ? 'ทวนเข็มนาฬิกา' : 'ตามเข็มนาฬิกา', ry = 800;
+  ctx.fillStyle = rgba(c.col, 0.08); rr(ctx, X0, ry, W, 126, 12); ctx.fill();
+  label(ctx, `${c.name} · ${st.n > 0 ? 'ซีกโลกเหนือ' : 'ซีกโลกใต้'} → ลมพัด${dirTxt}`, X0 + 18, ry + 26, { size: 20, wt: 700, color: c.col, align: 'left', fam: F.display });
+  const flowTxt = f < 0.08 ? 'ชั้นบนไม่มีแรงเสียดทาน ลมพัดขนานกับไอโซบาร์เป็นวง (ลมเกรเดียน)'
+    : st.c === 'L' ? `ใกล้ผิวโลก ลมพัดวน**เข้าหา**ศูนย์กลาง (เฉียง ${Math.round(f * 32)}°) อากาศ**ยกตัว** เกิดเมฆและฝน`
+    : `ใกล้ผิวโลก ลมพัดวน**ออกจาก**ศูนย์กลาง (เฉียง ${Math.round(f * 32)}°) อากาศ**จมตัว** ท้องฟ้าโปร่ง`;
+  para(ctx, (st.c === 'L' ? '**PGF** (เข้า) มากกว่า**แรงคอริออลิส** (ออก) ' : '**แรงคอริออลิส** (เข้า) มากกว่า**PGF** (ออก) ') + flowTxt, X0 + 18, ry + 50, W - 36, 18, { lh: 27, bcolor: c.col });
+  stitle(ctx, 'ข. ภาพตัดด้านข้าง', X0, 950, th);
+  const by = 1080, bx = cx;
+  ctx.fillStyle = '#c9b48a'; rr(ctx, X0, by, W, 14, 6); ctx.fill();
+  const up = st.c === 'L';
+  for (const sgn of [-1, 1]) {
+    arrow(ctx, bx + sgn * 260, by - 14, bx + sgn * 60, by - 14, { color: rgba(th.a, up ? 0.9 : 0), w: 4, head: 12, dash: [10, 6], off: -t * 30 });
+    arrow(ctx, bx + sgn * 60, by - 14, bx + sgn * 260, by - 14, { color: rgba(th.a, up ? 0 : 0.9), w: 4, head: 12, dash: [10, 6], off: -t * 30 });
+  }
+  arrow(ctx, bx, up ? by - 30 : 1000, bx, up ? 1000 : by - 30, { color: c.col, w: 6, head: 16, dash: [10, 6], off: -t * 30 });
+  if (up) for (const dx of [-34, 0, 34]) { circle(ctx, bx + dx - 70, 992, 16, 'rgba(120,130,150,0.55)'); circle(ctx, bx + dx - 50, 986, 20, 'rgba(120,130,150,0.55)'); }
+  else { circle(ctx, bx - 120, 1000, 22, 'rgba(255,212,59,0.85)'); }
+  label(ctx, up ? 'ลมสอบเข้า → อากาศยกตัว → เมฆ ฝน' : 'อากาศจมตัว → ลมฝ่ายออก → ฟ้าโปร่ง', bx + 70, 1004, { size: 16, wt: 600, color: c.col, align: 'left' });
+}
 function dSummary(ctx, t, P) {
   const { X0, X1, cx } = P;
   const A = '#5b4bc4', O = '#0f7c72', W = '#1f6fb2';
@@ -1296,7 +1472,7 @@ function dSummary(ctx, t, P) {
   const a = box(cx - 270, 222, 540, 64, 'ดวงอาทิตย์ให้พลังงานแก่ผิวโลก**ไม่เท่ากัน**', W);
   const b = box(cx - 270, 322, 540, 64, 'อุณหภูมิต่างกัน → **ความกดอากาศต่างกัน**', W);
   const c = box(X0, 424, half, 78, '**แรง PGF** ทำให้อากาศเคลื่อนที่ (ลม)', W);
-  const d = box(X1 - half, 424, half, 78, '**แรงคอริออลิส** เบี่ยงทิศทางลม', W);
+  const d = box(X1 - half, 424, half, 78, '**คอริออลิส · เสียดทาน · เข้าสู่ศูนย์กลาง** ปรับทิศลม', W);
   const e = box(cx - 290, 540, 580, 78, 'การหมุนเวียนทั่วไป **3 เซลล์**\nแฮดลีย์ · เฟอร์เรล · ขั้วโลก', A);
   const f = box(cx - 290, 656, 580, 64, '**ลมประจำ** ลมค้า · ลมตะวันตก · ลมตะวันออกขั้วโลก', A);
   const g = box(X0, 760, half, 92, 'ลมขับ**กระแสน้ำผิวหน้า**\n→ วงวน (แนวราบ)', O);
@@ -1369,27 +1545,27 @@ function drawBack(ctx) {
   label(ctx, 'สร้างด้วย three.js ร่วมกับ Claude', 440, 1060, { size: 17, wt: 600, color: 'rgba(217,180,90,0.9)' });
 }
 const TOC = [
-  [TH.wind, 'บทที่ 1 แรงที่ทำให้เกิดลม', [['แรงเกรเดียนความกดอากาศ (PGF)', 3], ['แรงคอริออลิส', 5]]],
-  [TH.atmo, 'บทที่ 2 การหมุนเวียนของบรรยากาศ', [['แบบจำลองเซลล์เดียว', 7], ['การหมุนเวียนทั่วไป 3 เซลล์', 9], ['แถบความกดอากาศและฤดูกาล', 11]]],
-  [TH.ocean, 'บทที่ 3 โครงสร้างและการเคลื่อนที่ของน้ำทะเล', [['น้ำผุดและน้ำจม', 13], ['ชั้นน้ำทะเล', 15]]],
-  [TH.flow, 'บทที่ 4 การหมุนเวียนของน้ำในมหาสมุทร', [['การหมุนเวียนในแนวราบ', 17], ['การหมุนเวียนในแนวดิ่ง', 19], ['เอลนีโญและลานีญา', 21]]],
-  [TH.end, 'ทบทวนความรู้', [['แผนผังสรุป', 23], ['แบบทดสอบท้ายบท', 24]]],
+  [TH.wind, 'บทที่ 1 แรงที่ทำให้เกิดลม', [['แรงเกรเดียนความกดอากาศ (PGF)', 3], ['แรงคอริออลิส', 5], ['แรงเสียดทาน', 7], ['แรงเข้าสู่ศูนย์กลาง', 9]]],
+  [TH.atmo, 'บทที่ 2 การหมุนเวียนของบรรยากาศ', [['แบบจำลองเซลล์เดียว', 11], ['การหมุนเวียนทั่วไป 3 เซลล์', 13], ['แถบความกดอากาศและฤดูกาล', 15]]],
+  [TH.ocean, 'บทที่ 3 โครงสร้างและการเคลื่อนที่ของน้ำทะเล', [['น้ำผุดและน้ำจม', 17], ['ชั้นน้ำทะเล', 19]]],
+  [TH.flow, 'บทที่ 4 การหมุนเวียนของน้ำในมหาสมุทร', [['การหมุนเวียนในแนวราบ', 21], ['การหมุนเวียนในแนวดิ่ง', 23], ['เอลนีโญและลานีญา', 25]]],
+  [TH.end, 'ทบทวนความรู้', [['แผนผังสรุป', 27], ['แบบทดสอบท้ายบท', 28]]],
 ];
 function drawTOC(ctx, P) {
   let y = 232;
   for (const [th, ch, items] of TOC) {
     ctx.fillStyle = th.a; rr(ctx, P.X0, y - 9, 16, 16, 4); ctx.fill();
     label(ctx, ch, P.X0 + 28, y, { size: 21, wt: 600, color: th.a, align: 'left', fam: F.display });
-    y += 40;
+    y += 36;
     for (const [name, p] of items) {
       label(ctx, name, P.X0 + 28, y, { size: 21, wt: 400, color: C.ink, align: 'left', fam: F.body });
       ctx.font = `400 21px ${F.body}`; const nw = ctx.measureText(name).width;
       ctx.fillStyle = 'rgba(93,104,114,0.45)'; for (let dx = P.X0 + 40 + nw; dx < P.X1 - 40; dx += 9) ctx.fillRect(dx, y + 6, 2, 2);
       label(ctx, String(p), P.X1, y, { size: 21, wt: 600, color: th.a, align: 'right' });
-      P.zones.push({ x: P.X0, y: y - 20, w: P.X1 - P.X0, h: 40, cursor: 'pointer', click: () => goToPage(p) });
-      y += 42;
+      P.zones.push({ x: P.X0, y: y - 20, w: P.X1 - P.X0, h: 36, cursor: 'pointer', click: () => goToPage(p) });
+      y += 37;
     }
-    y += 12;
+    y += 8;
   }
   label(ctx, 'แตะชื่อหัวข้อเพื่อไปยังหน้านั้น', P.cx, 1060, { size: 16, wt: 500, color: C.soft });
 }
@@ -1421,7 +1597,7 @@ const PAGES = [
   { kind: 'cover', anim: true },
   { th: TH.intro, title: 'ก่อนเริ่มเรียน', sub: 'How to use this book', blocks: [
     { h: 'จุดประสงค์การเรียนรู้' },
-    { li: ['อธิบายแรงที่ทำให้เกิดลม ได้แก่ **แรงเกรเดียนความกดอากาศ**และ**แรงคอริออลิส**', 'อธิบายการหมุนเวียนของอากาศตาม**แบบจำลองเซลล์เดียว**และ**สามเซลล์**', 'อธิบาย**น้ำผุด น้ำจม** และ**การแบ่งชั้นน้ำทะเล**', 'อธิบายการหมุนเวียนของน้ำในมหาสมุทร**แนวราบ แนวดิ่ง** และปรากฏการณ์**เอลนีโญ–ลานีญา**'] },
+    { li: ['อธิบายแรงที่ทำให้เกิดลม ได้แก่ **แรงเกรเดียนความกดอากาศ แรงคอริออลิส แรงเสียดทาน**และ**แรงเข้าสู่ศูนย์กลาง**', 'อธิบายการหมุนเวียนของอากาศตาม**แบบจำลองเซลล์เดียว**และ**สามเซลล์**', 'อธิบาย**น้ำผุด น้ำจม** และ**การแบ่งชั้นน้ำทะเล**', 'อธิบายการหมุนเวียนของน้ำในมหาสมุทร**แนวราบ แนวดิ่ง** และปรากฏการณ์**เอลนีโญ–ลานีญา**'] },
     { h: 'วิธีใช้หนังสือ' },
     { li: ['**ลากหรือคลิกบนภาพประกอบ** เพื่อเปลี่ยนสถานการณ์ แล้วสังเกตว่าลม น้ำ และแรงต่าง ๆ เปลี่ยนไปอย่างไร', '**คลิกขอบกระดาษ**หรือ**ลากมุมกระดาษ**เพื่อพลิกหน้า', '**ลากพื้นที่ว่าง**รอบหนังสือเพื่อหมุนมุมมอง ใช้**ลูกกลิ้งเมาส์**เพื่อซูม', 'ใช้ปุ่มลูกศร ← → หรือปุ่มด้านล่างจอเพื่อพลิกหน้า'] },
     { box: 'ภาพประกอบหน้าขวาทุกหน้า**ขยับได้** ลองตั้งคำถามว่า "ถ้า...จะเกิดอะไรขึ้น" แล้วลากเพื่อหาคำตอบ', tone: 'note' },
@@ -1446,6 +1622,25 @@ const PAGES = [
     { box: '**ลมจีโอสโทรฟิก** ในระดับสูงที่ไม่มีแรงเสียดทาน PGF กับแรงคอริออลิสสมดุลกัน ลมจึงพัด**ขนานกับไอโซบาร์**' },
   ] },
   { kind: 'diagram', th: TH.wind, title: 'ลองขว้างบนโลกที่หมุน', sub: 'ภาพโต้ตอบ: ทิศและขนาดของแรงคอริออลิส', draw: dCoriolis, init: () => ({ dn: { ang: 0, t0: 0 }, ds: { ang: 0, t0: 0 }, lat: 45 }) },
+  { th: TH.wind, title: 'แรงเสียดทาน', sub: 'Friction Force', blocks: [
+    { p: 'เมื่ออากาศเคลื่อนที่ผ่านผิวโลก จะเสียดสีกับพื้นผิว เช่น ทะเล ต้นไม้ อาคาร และภูเขา เกิด**แรงเสียดทาน**ที่มี**ทิศตรงข้ามกับทิศของลม** ทำให้ลม**ช้าลง**' },
+    { h: 'ชั้นบรรยากาศที่มีแรงเสียดทาน' },
+    { li: ['มีผล**มากที่สุดใกล้ผิวโลก** และลดลงตามความสูง จนแทบไม่มีผลที่ความสูงประมาณ **1 กิโลเมตร** (friction layer)', '**ผิวขรุขระ** เช่น เมือง ป่า และภูเขา มีแรงเสียดทาน**มากกว่า**ผิวเรียบ เช่น ผิวน้ำทะเล'] },
+    { h: 'ผลต่อทิศทางลม' },
+    { li: ['ลมช้าลง **แรงคอริออลิสจึงลดลง** เพราะแรงคอริออลิสแปรผันตามอัตราเร็ว', 'PGF จึงมีผลมากกว่า ลมจึง**พัดเฉียงข้ามไอโซบาร์เข้าหาความกดอากาศต่ำ**', 'มุมที่ลมเฉียงข้ามไอโซบาร์ประมาณ **10°–20° บนทะเล** และ **25°–45° บนแผ่นดิน**'] },
+    { box: 'ใกล้ผิวโลกมี 3 แรงสมดุลกัน คือ **PGF** สมดุลกับผลรวมของ**แรงคอริออลิส**และ**แรงเสียดทาน** ส่วนชั้นบนไม่มีแรงเสียดทาน ลมจึงพัดขนานไอโซบาร์ (ลมจีโอสโทรฟิก)' },
+  ] },
+  { kind: 'diagram', th: TH.wind, title: 'ลมบนพื้นผิวต่างกัน', sub: 'ภาพโต้ตอบ: แรงเสียดทานกับทิศและอัตราเร็วลม', draw: dFriction, init: () => ({ f: 0.66 }) },
+  { th: TH.wind, title: 'แรงเข้าสู่ศูนย์กลาง', sub: 'Centripetal Force', blocks: [
+    { p: 'เมื่ออากาศเคลื่อนที่เป็น**แนวโค้ง**รอบศูนย์กลางความกดอากาศ ต้องมีแรงลัพธ์ที่**ชี้เข้าหาศูนย์กลางความโค้ง** เรียกว่า**แรงเข้าสู่ศูนย์กลาง** ซึ่ง**ไม่ใช่แรงชนิดใหม่** แต่เป็น**ผลรวมของ PGF กับแรงคอริออลิส** ลมที่พัดวนแบบนี้เรียกว่า**ลมเกรเดียน (gradient wind)**' },
+    { f: 'Fc = mv² / r', cap: 'm = มวลอากาศ  ·  v = อัตราเร็วลม  ·  r = รัศมีความโค้ง' },
+    { h: 'รอบความกดอากาศต่ำ (L)' },
+    { li: ['ซีกโลกเหนือลมพัด**ทวนเข็มนาฬิกา** PGF (เข้า) **มากกว่า**แรงคอริออลิส (ออก)', 'ใกล้ผิวโลกลม**พัดวนเข้าหาศูนย์กลาง** อากาศยกตัว เกิด**เมฆและฝน** เช่น พายุหมุนเขตร้อน'] },
+    { h: 'รอบความกดอากาศสูง (H)' },
+    { li: ['ซีกโลกเหนือลมพัด**ตามเข็มนาฬิกา** แรงคอริออลิส (เข้า) **มากกว่า** PGF (ออก)', 'ใกล้ผิวโลกลม**พัดวนออกจากศูนย์กลาง** อากาศจมตัว **ท้องฟ้าโปร่ง**'] },
+    { box: '**ซีกโลกใต้**ทิศการหมุนกลับกัน รอบความกดอากาศต่ำลมพัดตามเข็มนาฬิกา รอบความกดอากาศสูงลมพัดทวนเข็มนาฬิกา', tone: 'note' },
+  ] },
+  { kind: 'diagram', th: TH.wind, title: 'ลมวนรอบ L และ H', sub: 'ภาพโต้ตอบ: แรงเข้าสู่ศูนย์กลาง', draw: dCentripetal, init: () => ({ c: 'L', n: 1, f: 0 }) },
   { th: TH.atmo, title: 'แบบจำลองเซลล์เดียว', sub: 'Single Cell Model', blocks: [
     { p: 'ในปี ค.ศ. 1735 **จอร์จ แฮดลีย์ (George Hadley)** เสนอแบบจำลองการหมุนเวียนของอากาศบนโลกอย่างง่าย โดยมีสมมติฐานว่า' },
     { li: ['โลก**ไม่หมุนรอบตัวเอง** จึงไม่มีแรงคอริออลิส', 'ผิวโลก**เป็นเนื้อเดียวกันทั้งหมด** ไม่มีทวีปและมหาสมุทร', 'ดวงอาทิตย์**ตั้งฉากกับเส้นศูนย์สูตร**ตลอดเวลา'] },
@@ -1837,7 +2032,7 @@ const POP = {
       ball.position.copy(paths[1].curve.getPointAt(mod1(t * 0.45)));
     } };
   } },
-  10: { rect: [92, 236, 742, 640], build(g, P) {
+  14: { rect: [92, 236, 742, 640], build(g, P) {
     const gx = P.cx + 26, gy = 566, R = 0.17;
     const G = deskGlobe(g, px2x(gx), py2z(gy), 0.3, R);
     const fixed = new THREE.Group(); fixed.position.copy(G.tiltG.position); g.add(fixed);
@@ -1881,7 +2076,7 @@ const POP = {
       tag.position.set(R * Math.cos(lat) + 0.02, R * Math.sin(lat), 0).applyAxisAngle(UP, plane.rotation.y);
     } };
   } },
-  14: { rect: [92, 214, 742, 540], build(g, P) {
+  18: { rect: [92, 214, 742, 540], build(g, P) {
     const x = P.X0, W = P.X1 - P.X0, top = 214, sY = top + 74, bot = top + 540, xL = x + W * 0.73, k = 0.55 / 900;
     const X = (px) => px2x(px), Y = (py) => (bot - py) * k, zb = -0.31, D = 0.36, zc = zb + D / 2;
     const earth = [[x, bot], [x, bot - 12], [x + W * 0.45, bot - 34], [x + W * 0.62, sY + 240], [xL - 20, sY + 60], [xL, sY - 6], [xL + 40, sY - 26], [x + W, sY - 34], [x + W, bot]];
@@ -1924,7 +2119,7 @@ const POP = {
       pa.needsUpdate = true;
     } };
   } },
-  16: { rect: [84, 222, 380, 790], build(g, P) {
+  20: { rect: [84, 222, 380, 790], build(g, P) {
     const cxp = P.X0 + 206, H = 0.42, r = 0.115, Yp = (py) => H * (990 - py) / 728;
     const cx = px2x(cxp), cz = py2z(626);
     const layers = [[262, 420], [420, 640], [640, 990]].map(([a, b], i) => {
@@ -1955,7 +2150,7 @@ const POP = {
       readout.position.set(cx, y + 0.045, cz + r + 0.02);
     } };
   } },
-  18: { rect: [92, 214, 742, 780], build(g, P) {
+  22: { rect: [92, 214, 742, 780], build(g, P) {
     const top = 214, bot = 994, latY = (lat) => 604 - lat * 6.1, X0 = P.X0, X1 = P.X1;
     const ocean = new THREE.Mesh(new THREE.BoxGeometry(px2x(X1) - px2x(X0), 0.014, (bot - top) / 900), M(0x3e8fc4, { roughness: 0.25 }));
     ocean.position.set((px2x(X0) + px2x(X1)) / 2, 0.007, (py2z(top) + py2z(bot)) / 2); g.add(ocean); ocean.receiveShadow = true;
@@ -2003,7 +2198,7 @@ const POP = {
       }
     } };
   } },
-  22: { rect: [92, 214, 742, 616], build(g, P) {
+  26: { rect: [92, 214, 742, 616], build(g, P) {
     const top = 214, bot = 830, sY = 520, k = 0.6 / 900, X = px2x, Y = (py) => (bot - py) * k, zb = -0.3, D = 0.32, zc = zb + D / 2;
     const st = P.st, X0 = P.X0, X1 = P.X1, wl = X0 + 90, wr = X1 - 90, N2 = 28;
     const landM = M(0xb6a26e, { roughness: 0.9 });
